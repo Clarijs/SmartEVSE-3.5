@@ -101,6 +101,7 @@ class Meter {
     uint32_t Peak_Month_Index;                                                  // month Peak_Period_Power_Month belongs to: (year * 12) + month(0-11); 0 = unknown
 #define CapacityPeriodSeconds 900  // 15 minutes
 #define CapacityMinimumPower 2500  // Flanders: 2.5kW is the minimum billed peak (W)
+#define CapacityMinHorizon 120     // Flanders: spread the remaining energy over at least 2 minutes
 #define DAY_POINTS 24*3600/CapacityPeriodSeconds
     int16_t PowerMeasured_Period[DAY_POINTS];                                   // the peak of the power per period(15min)
 
