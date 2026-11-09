@@ -23,7 +23,7 @@ for the **Flemish capacity tariff** (*capaciteitstarief*) and for installations 
 5. [Measured mains voltage](#4-measured-mains-voltage)
 6. [Capacity mode Peak and configurable margin](#5-capacity-mode-peak-and-configurable-margin)
 7. [Home battery power in watts](#6-home-battery-power-in-watts)
-   · [Home battery protect](#home-battery-protect)
+   · [Battery Guard](#battery-guard)
    · [7. Smart mode start current](#7-smart-mode-start-current)
 8. [Benefits with a home battery](#benefits-with-a-home-battery)
 9. [MQTT and REST reference](#mqtt-and-rest-reference)
@@ -43,7 +43,7 @@ for the **Flemish capacity tariff** (*capaciteitstarief*) and for installations 
 | 3 | Max Sum Mains headroom **per switched phase** instead of always ÷3 | On single phase the charger corrected an overshoot 3× too slowly |
 | 4 | **Measured voltage** from every mains meter (API, Modbus, HomeWizard) + **monthly peak from a HomeWizard P1** | The capacity modes used a fixed 230 V |
 | 5 | New capacity mode **Peak** + **configurable margin** | Stable ceiling just under the monthly peak that stays below a home battery's peak-shaving threshold |
-| 6 | **Home battery in watts**: offset, full SoC and conversion done by the SmartEVSE, plus **Home battery protect** with a SoC window | `HomeBatteryCurrent` had to be calculated in deci-amps by the sender; a peak-shaving battery ended up charging the EV |
+| 6 | **Home battery in watts**: offset, full SoC and conversion done by the SmartEVSE, plus **Battery Guard** with a SoC window | `HomeBatteryCurrent` had to be calculated in deci-amps by the sender; a peak-shaving battery ended up charging the EV |
 | 7 | **Smart mode start current** fixed, setpoint capped at the measured headroom | A standalone charger started at full current and overshot the limit |
 | – | Bug fix: negative energy difference could register a bogus peak of up to 65 kW | `uint16_t` overflow in `UpdateCapacity()` |
 
@@ -256,28 +256,42 @@ HomeBatteryCurrent (0.1 A) = (power − offset) ÷ measured voltage × 10
 Example: power 1000 W, offset 25 W, voltage 232 V → (1000 − 25) ÷ 232 × 10 = **42** (4.2 A).
 With full SoC 99.7 % and a SoC of 99.8 % → **0**.
 
-### Home battery protect
+### Battery Guard
 
-A battery doing peak shaving holds the mains exactly at its threshold. The SmartEVSE then sees almost
+*Battery Guard* keeps the home battery out of the EV in **Smart** mode. In the settings it is called
+`HomeBatteryProtect` (MQTT, REST, Home Assistant, web interface); the name on this page is just
+easier to read.
+
+**1. Peak shaving at night.** A battery doing peak shaving holds the mains exactly at its threshold. The SmartEVSE then sees almost
 no overshoot, lowers the current only 0.1 A per measurement, and meanwhile the battery charges the EV.
 Measured: after a start at 21 A the battery delivered **1.8 kW to the EV** for minutes, while the
 mains stayed at 2700–2730 W.
 
-With **Home battery protect** on, a discharging battery counts as mains import in **Smart** mode: the
-EV is limited as if the battery were idle, and the charger drops in one step. Charging the battery is
-not counted; discharges below 0.3 A are ignored.
+With Battery Guard on, a discharging battery counts as mains import: the EV is limited as if the
+battery were idle, and the charger drops in one step.
+
+**2. Self-consumption in daytime: works like Solar.** When the battery covers the house itself
+(self-consumption, grid at 0 W), counting the discharge is not enough: the total stays under the
+limit, and the battery would still feed the EV. So while Battery Guard is active and the battery
+discharges, the SmartEVSE regulates like Solar mode: the EV current is **lowered by the discharge**
+and, for 10 minutes after the last discharge, only raised by 0.1 A per update. The EV settles at what
+the solar panels and the grid can deliver without the battery. Below the minimum current (6 A) the EV
+keeps 6 A; the battery then covers only the part that is missing.
+
+Charging the battery is never counted; discharges below 0.3 A are ignored. At night, when the battery
+is below its reserve and idle, Battery Guard does nothing and Smart works as usual.
 
 **SoC window (hysteresis):** with a well-charged battery you may want it to feed the EV after all.
 
 | Setting | MQTT | REST | Effect |
 |---|---|---|---|
-| Protect on/off | `Set/HomeBatteryProtect` (On/Off) | `home_battery_protect` (1/0) | default off |
-| Feed EV from (SoC high) | `Set/HomeBatteryProtectSoCHigh` | `home_battery_protect_soc_high` | at or above: protect paused, battery may feed the EV (0 = always protect) |
-| Protect again at (SoC low) | `Set/HomeBatteryProtectSoCLow` | `home_battery_protect_soc_low` | at or below: protect active again |
+| Battery Guard on/off | `Set/HomeBatteryProtect` (On/Off) | `home_battery_protect` (1/0) | default off |
+| Feed EV from (SoC high) | `Set/HomeBatteryProtectSoCHigh` | `home_battery_protect_soc_high` | at or above: Battery Guard paused, battery may feed the EV (0 = always active) |
+| Guard again at (SoC low) | `Set/HomeBatteryProtectSoCLow` | `home_battery_protect_soc_low` | at or below: Battery Guard active again |
 
-Example with *Feed EV from* 80 % and *Protect again at* 50 %:
+Example with *Feed EV from* 80 % and *Guard again at* 50 %:
 
-| Battery SoC | Protect |
+| Battery SoC | Battery Guard |
 |---|---|
 | 85 % | paused: the battery may feed the EV |
 | 85 → 60 % (discharging) | stays paused |
@@ -285,7 +299,7 @@ Example with *Feed EV from* 80 % and *Protect again at* 50 %:
 | 50 → 70 % (charging) | stays active |
 | 80 % | paused again |
 
-Between the two values the last state is kept. Without a SoC protect is always active. The current
+Between the two values the last state is kept. Without a SoC Battery Guard is always active. The current
 state is published on `/HomeBatteryProtectActive` (HA binary sensor) and shown in the web interface
 as *(active)* / *(paused)*. All settings are stored, announced via MQTT discovery and editable in the
 Home battery card.
@@ -488,7 +502,7 @@ settings (`CapPeakW`, `CapMargin`, `MaxSumMainsT`) are simply ignored. Set `CAP 
 | [`maxsummains-tenths`](https://github.com/Clarijs/SmartEVSE-3.5/tree/maxsummains-tenths) | §2 Max Sum Mains in 0.1 A (MQTT, web, REST) | pull request |
 | [`maxsummains-phases`](https://github.com/Clarijs/SmartEVSE-3.5/tree/maxsummains-phases) | §3 regulation per switched phase | pull request |
 | [`capacity-peak-mode`](https://github.com/Clarijs/SmartEVSE-3.5/tree/capacity-peak-mode) | §1–§5 combined, including measured voltage, mode Peak and margin | pull request (after the others) |
-| [`home-battery-power`](https://github.com/Clarijs/SmartEVSE-3.5/tree/home-battery-power) | §6 home battery power in watts, protect and SoC window (on top of `capacity-peak-mode`) | pull request (after `capacity-peak-mode`) |
+| [`home-battery-power`](https://github.com/Clarijs/SmartEVSE-3.5/tree/home-battery-power) | §6 home battery power in watts, Battery Guard and SoC window (on top of `capacity-peak-mode`) | pull request (after `capacity-peak-mode`) |
 | [`smart-start-current`](https://github.com/Clarijs/SmartEVSE-3.5/tree/smart-start-current) | §7 start current and headroom cap in Smart mode | pull request (bug fix) |
 | [`release/capacity-peak-build`](https://github.com/Clarijs/SmartEVSE-3.5/tree/release/capacity-peak-build) | everything + CI change to build without signing key | **firmware for this fork**, not for a PR |
 
@@ -499,12 +513,12 @@ voltage instead of `AssumedVoltage = 230`.
 
 ## Known limitations
 
-- **Home battery protect and big house loads:** when the house alone goes above the limit (oven plus
-  hob), protect makes the SmartEVSE lower the EV to the minimum (6 A). If that lasts longer than
-  `MaxSumMainsTime`, charging stops until there is room again. Without protect the battery silently
+- **Battery Guard and big house loads:** when the house alone goes above the limit (oven plus
+  hob), Battery Guard makes the SmartEVSE lower the EV to the minimum (6 A). If that lasts longer than
+  `MaxSumMainsTime`, charging stops until there is room again. Without Battery Guard the battery silently
   covered this.
-- **Home battery protect needs a fresh battery value:** without an update for 60 seconds the battery
-  counts as 0 and protect has no effect. Send `Set/HomeBatteryPower` every second or every few seconds.
+- **Battery Guard needs a fresh battery value:** without an update for 60 seconds the battery
+  counts as 0 and Battery Guard has no effect. Send `Set/HomeBatteryPower` every second or every few seconds.
 
 - The **LCD menu** shows Max Sum Mains in whole amps; the web page and MQTT show 0.1 A.
 - The **Sensorbox** has no voltage measurement; with a Sensorbox the capacity modes keep using 230 V.
