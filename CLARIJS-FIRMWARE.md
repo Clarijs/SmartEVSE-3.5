@@ -168,6 +168,11 @@ Excerpt of `GET /settings` with the new fields (values from this installation):
 
 ## 5. Capacity mode Peak and configurable margin
 
+> **Flanders end of period (in test, PR #436):** near the end of a 15 minute period the remaining
+> energy is now spread over at least 2 minutes (`CapacityMinHorizon`), instead of the last few
+> seconds. This stops the EV from switching off and on at the end of a quarter in mode Flanders.
+> Mode Peak is not affected.
+
 ### Mode Peak (`CAP MODE = Peak`, value 4)
 
 ```
