@@ -1014,15 +1014,30 @@ void CalcBalancedCurrent(char mod) {
             }
         }
 
+        // Home battery protect, solar-like: in Smart mode the EV may not take power from a discharging home battery.
+        // While protect is active and the battery discharges, the EV current is lowered by the discharge (like Solar
+        // lowers it on import), and for 10 minutes after the last discharge it is only raised slowly (0.1A per update),
+        // so it settles where the battery stays idle. Below MinCurrent the EV keeps MinCurrent.
+        static time_t ProtectSlowUntil = 0;
+        bool ProtectActive = (Mode == MODE_SMART && homeBatteryLastUpdate && isHomeBatteryProtectActive());
+        bool ProtectDischarging = ProtectActive && homeBatteryCurrent <= -3;
+        if (ProtectDischarging) ProtectSlowUntil = time(NULL) + 600;
+        bool ProtectSlow = ProtectActive && time(NULL) < ProtectSlowUntil;
+
         if (!mod) {                                                             // no new EVSE's charging
                                                                                 // For Smart mode, no new EVSE asking for current
             if (phasesLastUpdateFlag) {                                         // only increase or decrease current if measurements are updated
                 _LOG_V("phaseLastUpdate=%u.\n", phasesLastUpdate);
                 if (Idifference > 0) {
-                    if (Mode == MODE_SMART) IsetBalanced += (Idifference / 4);  // increase with 1/4th of difference (slowly increase current)
+                    if (Mode == MODE_SMART) IsetBalanced += ProtectSlow ? min(Idifference / 4, 1) : (Idifference / 4);  // increase with 1/4th of difference (slowly increase current)
                 }                                                               // in Solar mode we compute increase of current later on!
                 else
                     IsetBalanced += Idifference;                                // last PWM setting + difference (immediately decrease current) (Smart and Solar mode)
+                if (ProtectDischarging && ActiveEVSE > 0) {
+                    // battery data arrives every few seconds, so take half of the discharge per mains update
+                    int Dec = (-homeBatteryCurrent) / (2 * SumMainsPhases());
+                    IsetBalanced -= (Dec < 1) ? 1 : Dec;
+                }
             }
 
             if (IsetBalanced < 0) IsetBalanced = 0;
