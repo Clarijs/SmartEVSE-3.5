@@ -258,9 +258,8 @@ With full SoC 99.7 % and a SoC of 99.8 % → **0**.
 
 ### Battery Guard
 
-*Battery Guard* keeps the home battery out of the EV in **Smart** mode. In the settings it is called
-`HomeBatteryProtect` (MQTT, REST, Home Assistant, web interface); the name on this page is just
-easier to read.
+*Battery Guard* keeps the home battery out of the EV in **Smart** mode. MQTT `Set/BatteryGuard`,
+REST `battery_guard`, Home Assistant switch *Battery Guard*, web interface (Home battery card).
 
 **1. Peak shaving at night.** A battery doing peak shaving holds the mains exactly at its threshold. The SmartEVSE then sees almost
 no overshoot, lowers the current only 0.1 A per measurement, and meanwhile the battery charges the EV.
@@ -285,9 +284,9 @@ is below its reserve and idle, Battery Guard does nothing and Smart works as usu
 
 | Setting | MQTT | REST | Effect |
 |---|---|---|---|
-| Battery Guard on/off | `Set/HomeBatteryProtect` (On/Off) | `home_battery_protect` (1/0) | default off |
-| Feed EV from (SoC high) | `Set/HomeBatteryProtectSoCHigh` | `home_battery_protect_soc_high` | at or above: Battery Guard paused, battery may feed the EV (0 = always active) |
-| Guard again at (SoC low) | `Set/HomeBatteryProtectSoCLow` | `home_battery_protect_soc_low` | at or below: Battery Guard active again |
+| Battery Guard on/off | `Set/BatteryGuard` (On/Off) | `battery_guard` (1/0) | default off |
+| Feed EV from (SoC high) | `Set/BatteryGuardSoCHigh` | `battery_guard_soc_high` | at or above: Battery Guard paused, battery may feed the EV (0 = always active) |
+| Guard again at (SoC low) | `Set/BatteryGuardSoCLow` | `battery_guard_soc_low` | at or below: Battery Guard active again |
 
 Example with *Feed EV from* 80 % and *Guard again at* 50 %:
 
@@ -300,7 +299,7 @@ Example with *Feed EV from* 80 % and *Guard again at* 50 %:
 | 80 % | paused again |
 
 Between the two values the last state is kept. Without a SoC Battery Guard is always active. The current
-state is published on `/HomeBatteryProtectActive` (HA binary sensor) and shown in the web interface
+state is published on `/BatteryGuardActive` (HA binary sensor) and shown in the web interface
 as *(active)* / *(paused)*. All settings are stored, announced via MQTT discovery and editable in the
 Home battery card.
 
@@ -391,9 +390,9 @@ Night charging of a Peugeot plug-in hybrid (±10 kWh), monthly peak 2755 W:
 | `<prefix>/Set/HomeBatteryFullSoC` | → EVSE | full SoC in % (0–100, one decimal, 0 = off), stored |
 | `<prefix>/HomeBatteryPower` | EVSE → | received battery power in W |
 | `<prefix>/HomeBatteryOffset`, `<prefix>/HomeBatteryFullSoC` | EVSE → | the settings |
-| `<prefix>/Set/HomeBatteryProtect` | → EVSE | On/Off, stored |
-| `<prefix>/Set/HomeBatteryProtectSoCHigh`, `…SoCLow` | → EVSE | SoC window in %, stored |
-| `<prefix>/HomeBatteryProtect`, `…SoCHigh`, `…SoCLow`, `…Active` | EVSE → | settings and current state |
+| `<prefix>/Set/BatteryGuard` | → EVSE | On/Off, stored |
+| `<prefix>/Set/BatteryGuardSoCHigh`, `…SoCLow` | → EVSE | SoC window in %, stored |
+| `<prefix>/BatteryGuard`, `…SoCHigh`, `…SoCLow`, `…Active` | EVSE → | settings and current state |
 
 ### New REST parameters (`POST /settings?…`)
 
