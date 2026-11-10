@@ -69,7 +69,7 @@ Changes are offered to dingo35 as small pull requests, one subject each:
 | Measured mains voltage | [#437](https://github.com/dingo35/SmartEVSE-3.5/pull/437) | open |
 | Mode Peak + margin | [#430](https://github.com/dingo35/SmartEVSE-3.5/pull/430) | draft, after #425/#432 |
 | Home battery in watts | [#434](https://github.com/dingo35/SmartEVSE-3.5/pull/434) | open |
-| Battery Guard | [#435](https://github.com/dingo35/SmartEVSE-3.5/pull/435) | open |
+| Battery Guard | [#439](https://github.com/dingo35/SmartEVSE-3.5/pull/439) | open (replaces closed #435) |
 | Flanders: budget over ≥ 2 min | [#436](https://github.com/dingo35/SmartEVSE-3.5/pull/436) | draft |
 
 Names of MQTT topics can still change during review (e.g. `Set/CapacityPeak` in this firmware is
