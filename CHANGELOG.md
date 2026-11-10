@@ -13,7 +13,8 @@ Every change is added to **Unreleased** first; at the next release that section 
 - **Web dashboard (test, only on branch `release/personal-dashboard`, not in a release yet):** new page
   `/dashboard.html` with a simple visual overview: charging status, capacity bar (house / car / room
   under the ceiling), home battery with Battery Guard state, a 10-minute chart, big mode buttons and quick
-  settings. Uses only the existing `/settings` API; no change to the charging logic. The dashboard is
+  settings (charge current, Battery Guard; the margin stays on the Capacity page). Uses only the existing
+  `/settings` API; no change to the charging logic. The dashboard is
   now the start page (`/`); the former main page with every setting moved to `/advanced.html`
   (*All settings*). All pages (advanced, capacity, update) got the same style as the dashboard (dark
   status banner, larger cards and buttons, toggles). Theme button (auto/light/dark) also on the

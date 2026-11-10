@@ -197,11 +197,6 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
       <input type="range" id="q-ov" min="0" max="10" step="1" value="0">
       <div class="ch meta"><span id="q-ovv">automatic</span><span id="q-ovmax"></span></div>
     </div>
-    <div class="f" id="q-mw">
-      <label for="q-m">Stay under my peak by</label>
-      <div style="display:flex;align-items:center;gap:8px"><input type="number" id="q-m" min="0" max="1000" step="5"><span style="font-size:14px;color:var(--tx2)">W</span></div>
-      <div class="meta">Larger = safer, smaller = faster</div>
-    </div>
     <div class="f" id="q-gw">
       <span class="lb" id="q-gl">Battery Guard</span>
       <button type="button" class="tog" id="q-g" aria-pressed="false" aria-labelledby="q-gl"><span></span></button>
@@ -317,7 +312,6 @@ function render() {
   $("c-ex").textContent = s.capacity_mode === 4 ? "The car gets what is left under your monthly peak. \u201cOther on the meter\u201d is what the meter sees besides the car (house minus solar and battery). When the kettle goes on, the car slows down for a moment so the peak is never raised."
     : s.capacity_mode === 3 ? "Flanders mode spreads a 15-minute budget. The instantaneous power may go above the peak; the quarter average stays under it."
     : "The car gets what is left under Max Sum Mains.";
-  $("q-mw").classList.toggle("hidden", !(s.capacity_mode >= 3));
 
   // battery
   $("bat").classList.toggle("hidden", !batOn);
@@ -345,7 +339,6 @@ function render() {
     r.value = ovA < 1 ? 0 : ovA - s.current_min + 1;
     $("q-ovv").textContent = ovA < 1 ? "automatic" : ovA + " A fixed";
     $("q-ovmax").textContent = "max " + s.current_max + " A";
-    if (document.activeElement !== $("q-m")) $("q-m").value = s.capacity_margin;
   }
   $("q-g").setAttribute("aria-pressed", String(!!hb.guard));
 
@@ -396,7 +389,6 @@ $("l-ok").onclick = () => {
 };
 $("q-ov").oninput = () => { editing = Date.now() + 4000; const p = +$("q-ov").value; $("q-ovv").textContent = p < 1 ? "automatic" : (d.settings.current_min + p - 1) + " A fixed"; };
 $("q-ov").onchange = () => { const p = +$("q-ov").value; const a = p < 1 ? 0 : d.settings.current_min + p - 1; post({ override_current: a * 10 }); };
-$("q-m").onchange = (ev) => { if (ev.target.value !== "") post({ capacity_margin: ev.target.value }); };
 $("q-g").onclick = () => { if (!d) return; const on = !(d.home_battery && d.home_battery.guard); post({ battery_guard: on ? 1 : 0 }); };
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 (function () {
