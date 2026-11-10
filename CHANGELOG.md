@@ -18,6 +18,8 @@ Every change is added to **Unreleased** first; at the next release that section 
   (*All settings*). All pages (advanced, capacity, update) got the same style as the dashboard (dark
   status banner, larger cards and buttons, toggles). Theme button (auto/light/dark) also on the
   dashboard; dark mode with more contrast.
+  Without a home battery (or when no battery power arrived for 2 minutes) the dashboard hides the
+  battery card, the battery line in the chart and the Battery Guard switch.
   "Other on the meter" = mains minus car (the charger does not know the solar production).
   With an RFID reader the dashboard asks to present the card while access is off.
 

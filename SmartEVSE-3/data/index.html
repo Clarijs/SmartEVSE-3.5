@@ -202,7 +202,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
       <div style="display:flex;align-items:center;gap:8px"><input type="number" id="q-m" min="0" max="1000" step="5"><span style="font-size:14px;color:var(--tx2)">W</span></div>
       <div class="meta">Larger = safer, smaller = faster</div>
     </div>
-    <div class="f">
+    <div class="f" id="q-gw">
       <span class="lb" id="q-gl">Battery Guard</span>
       <button type="button" class="tog" id="q-g" aria-pressed="false" aria-labelledby="q-gl"><span></span></button>
       <div class="meta">Keep the home battery out of the car (Smart mode)</div>
@@ -252,7 +252,9 @@ function render() {
   const ph = d.phase_currents || {};
   const grid = ((ph.L1 || 0) + (ph.L2 || 0) + (ph.L3 || 0)) / 10 * volt;
   const ev = Math.max(0, em.import_active_power || 0);
-  const batOn = typeof hb.power === "number";
+  // battery card only when a battery power is received, and not stale (> 2 min without update)
+  const ref = (d.phase_currents && d.phase_currents.last_data_update) || hb.last_update || 0;
+  const batOn = typeof hb.power === "number" && !(hb.last_update && ref - hb.last_update > 120);
   const bat = batOn ? hb.power : 0;
   const ceil = ceilingW(s, volt, e.nrofphases);
   const room = Math.max(0, ceil - grid);
@@ -318,6 +320,7 @@ function render() {
   // battery
   $("bat").classList.toggle("hidden", !batOn);
   $("lg-bat").classList.toggle("hidden", !batOn);
+  $("q-gw").classList.toggle("hidden", !batOn);
   if (batOn) {
     const soc = typeof hb.soc === "number" ? hb.soc : null;
     $("b-soc").textContent = soc == null ? "—" : Math.round(soc) + " %";
@@ -362,7 +365,7 @@ function drawChart(now) {
   const pts = (i) => hist.map((p) => x(p[0]) + "," + y(p[i])).join(" ");
   $("k-grid").setAttribute("points", pts(1));
   $("k-car").setAttribute("points", pts(2));
-  $("k-bat").setAttribute("points", d.home_battery && typeof d.home_battery.power === "number" ? pts(3) : "");
+  $("k-bat").setAttribute("points", $("bat").classList.contains("hidden") ? "" : pts(3));
   const c = hist.length ? hist[hist.length - 1][4] : 0;
   $("k-ceil").setAttribute("y1", c > 0 ? y(c) : -10); $("k-ceil").setAttribute("y2", c > 0 ? y(c) : -10);
   $("k-zero").setAttribute("y1", y(0)); $("k-zero").setAttribute("y2", y(0));
