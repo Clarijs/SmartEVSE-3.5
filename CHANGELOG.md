@@ -16,7 +16,8 @@ Every change is added to **Unreleased** first; at the next release that section 
   settings. Uses only the existing `/settings` API; no change to the charging logic. The dashboard is
   now the start page (`/`); the former main page with every setting moved to `/advanced.html`
   (*All settings*). All pages (advanced, capacity, update) got the same style as the dashboard (dark
-  status banner, larger cards and buttons, toggles).
+  status banner, larger cards and buttons, toggles). Theme button (auto/light/dark) also on the
+  dashboard; dark mode with more contrast.
   "Other on the meter" = mains minus car (the charger does not know the solar production).
   With an RFID reader the dashboard asks to present the card while access is off.
 
