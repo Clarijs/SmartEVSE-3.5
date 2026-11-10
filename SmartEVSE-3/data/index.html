@@ -607,8 +607,8 @@ $("chk-lcdlock").onchange = (e) => postSettings(new URLSearchParams({ lcdlock: e
 $("chk-cablelock").onchange = (e) => postSettings(new URLSearchParams({ cablelock: e.target.checked ? 1 : 0 }));
 $("ln-doc").onclick = (e) => {
   e.preventDefault();
-  const v = d && d.version ? d.version : "";
-  location.href = "https://github.com/dingo35/SmartEVSE-3.5/tree/" + (v.startsWith("v") ? v : "master?tab=readme-ov-file") + "#documentation";
+  // Clarijs firmware: the documentation (README + guides) lives on the firmware branch of the fork
+  location.href = "https://github.com/Clarijs/SmartEVSE-3.5/tree/release/capacity-peak-build#readme";
 };
 $("btn-reboot").onclick = function () {
   if (!confirm("Reboot the SmartEVSE?")) return;
