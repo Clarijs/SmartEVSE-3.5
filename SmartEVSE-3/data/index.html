@@ -273,6 +273,7 @@ function render() {
   let st, dot, line;
   if (e.error_id && e.error !== "None") { st = e.error; dot = "bad"; line = "The charger reports a problem. See All settings for details."; }
   else if (paused) { st = "Paused"; dot = "wait"; line = "Charging is paused. Tap Resume to continue."; }
+  else if (off && e.access === 0 && e.rfidreader && e.rfidreader !== "Disabled" && e.rfidreader !== "Rmt/OCPP") { st = "Present your RFID card"; dot = "wait"; line = d.car_connected ? "Hold your card in front of the reader to start charging." : "Plug in the car and hold your card in front of the reader."; }
   else if (off) { st = s.starttime ? "Waiting for start time" : "Off"; dot = ""; line = s.starttime ? "Charging starts at the time you set." : "Charging is switched off. Pick a mode below to start."; }
   else if (/No Power Available/i.test(e.state)) { st = "Waiting for room"; dot = "wait"; line = (d.mode_id === 2 ? "Not enough solar power yet." : "The house uses almost all of your peak.") + " Charging starts automatically when there is room for " + s.current_min + " A."; }
   else if (charging) { st = "Charging · " + modeName; dot = "ok"; line = ceil > 0 ? "Room left under your ceiling: " + fmtW(room) + "." + (batOn ? (bat < -50 ? " The battery is discharging." : " Battery is not used.") : "") : "Charging at the set current."; }
