@@ -1293,7 +1293,7 @@ void discoverNetworkMeters() {
  *     - An array of 8 values: current in deci-amps for L1, L2, L3, total import (Wh), total export (Wh),
  *       total power (W), voltage L1 (0.1V, 0 = not available) and the monthly capacity peak (W, 0 = not available)
  */
-std::pair<int8_t, std::array<std::int32_t, 8> > getDataFromHomeWizard(const char *hostname) {
+std::pair<int8_t, std::array<std::int32_t, 8> > getDataFromHomeWizard(const char *hostname, int32_t* netCurrent) {
     _LOG_A("Invocation\n");
     if (hostname == nullptr || hostname[0] == '\0') {
         _LOG_A("No hostname provided.\n");
@@ -1400,6 +1400,16 @@ std::pair<int8_t, std::array<std::int32_t, 8> > getDataFromHomeWizard(const char
     if (doc.containsKey(extraKeys[0]))      evdata[6] = lroundf(doc[extraKeys[0]].as<float>() * 10); // voltage L1 in 0.1V
     else if (doc.containsKey(extraKeys[1])) evdata[6] = lroundf(doc[extraKeys[1]].as<float>() * 10);
     if (doc.containsKey(extraKeys[2]))      evdata[7] = lroundf(doc[extraKeys[2]].as<float>());      // monthly peak in W
+
+    if (netCurrent) {
+        *netCurrent = INT32_MIN;
+        // L+G E360 on 3x230V reports zero phase powers (Fluvius P1 specification).
+        // Keep RMS phase currents for MaxMains, but use signed total power for
+        // Solar/capacity regulation, on the capacity budget's existing 230V basis.
+        if (phases >= 3 && doc.containsKey(powerKeys[3]) &&
+            doc[powerKeys[0]].as<int>() == 0 && doc[powerKeys[1]].as<int>() == 0 && doc[powerKeys[2]].as<int>() == 0)
+            *netCurrent = evdata[5] * 10 / 230;
+    }
 
 return {phases, evdata};
 }
