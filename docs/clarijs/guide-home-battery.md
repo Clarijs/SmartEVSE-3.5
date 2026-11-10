@@ -60,6 +60,12 @@ Both are also in the Home battery card of the web interface and as Home Assistan
 
 Between both values the last state is kept. `/BatteryGuardActive` shows the current state.
 
+**Stop when the battery keeps feeding the car (optional):** Battery Guard never lowers the car below
+6 A. A battery in self-consumption mode then still covers those 6 A (~1.4 kW). With
+`Set/BatteryGuardStop` (minutes, e.g. 3) charging stops when the battery keeps discharging with the car
+at 6 A for that long, and restarts once the battery has been idle for a minute (e.g. at its reserve, or
+when the sun covers the house). 0 = never stop.
+
 ## 4. Result (measured)
 
 | | Before | After |

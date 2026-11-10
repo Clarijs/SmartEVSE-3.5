@@ -233,6 +233,9 @@ extern uint16_t HomeBatteryFullSoC;
 extern uint8_t HomeBatteryProtect;
 extern uint16_t HomeBatteryProtectSoCHigh;
 extern uint16_t HomeBatteryProtectSoCLow;
+extern uint8_t BatteryGuardStop;
+extern bool BatteryGuardStopped;
+extern uint16_t BatteryGuardStopTimer;
 extern bool isHomeBatteryProtectActive(void);
 extern void setHomeBatteryPower(int32_t Watt, int32_t SoC);
 
@@ -722,6 +725,12 @@ void mqtt_receive_callback(const String topic, const String payload) {
             HomeBatteryProtectSoCHigh = soc;
             shadowPrefs.markUShort("BatProtHigh", &HomeBatteryProtectSoCHigh);
         }
+    } else if (topic == MQTTprefix + "/Set/BatteryGuardStop" && LoadBl < 2) {
+        int32_t minutes = payload.toInt();
+        if (minutes >= 0 && minutes <= 60) {
+            BatteryGuardStop = minutes;
+            shadowPrefs.markUChar("BatGuardStop", &BatteryGuardStop);
+        }
     } else if (topic == MQTTprefix + "/Set/BatteryGuardSoCLow" && LoadBl < 2) {
         int32_t soc = parseSoCTenths(payload);
         if (soc >= 0) {
@@ -1059,6 +1068,10 @@ void SetupMQTTClient() {
             ", \"command_topic\":\"%s/Set/BatteryGuardSoCLow\", \"min\":\"0\", \"max\":\"100\", \"step\":\"0.1\""
             ", \"mode\":\"box\", \"unit_of_measurement\":\"%%\", \"entity_category\":\"config\"", p);
         MQTTclient.announce("Battery Guard SoC Low", "number", opt);
+        snprintf(opt, sizeof(opt),
+            ", \"command_topic\":\"%s/Set/BatteryGuardStop\", \"min\":\"0\", \"max\":\"60\", \"step\":\"1\""
+            ", \"mode\":\"box\", \"unit_of_measurement\":\"min\", \"entity_category\":\"config\"", p);
+        MQTTclient.announce("Battery Guard Stop", "number", opt);
         MQTTclient.announce("Battery Guard Active", "binary_sensor", ", \"payload_on\":\"On\", \"payload_off\":\"Off\"");
     }
 
@@ -1183,6 +1196,7 @@ void mqttPublishData() {
             mqPubS("/BatteryGuardSoCHigh", soc, true, 0);
             snprintf(soc, sizeof(soc), "%u.%u", HomeBatteryProtectSoCLow / 10, HomeBatteryProtectSoCLow % 10);
             mqPubS("/BatteryGuardSoCLow", soc, true, 0);
+            mqPubI("/BatteryGuardStop", BatteryGuardStop, true, 0);
             snprintf(soc, sizeof(soc), "%u.%u", HomeBatteryFullSoC / 10, HomeBatteryFullSoC % 10);
             mqPubS("/HomeBatteryFullSoC", soc, true, 0);
         }
@@ -1427,6 +1441,8 @@ void read_settings() {
         if (HomeBatteryProtectSoCHigh > 1000) HomeBatteryProtectSoCHigh = 0;
         HomeBatteryProtectSoCLow = preferences.getUShort("BatProtLow", 0);
         if (HomeBatteryProtectSoCLow > 1000) HomeBatteryProtectSoCLow = 0;
+        BatteryGuardStop = preferences.getUChar("BatGuardStop", 0);
+        if (BatteryGuardStop > 60) BatteryGuardStop = 0;
         MainsMeter.Peak_Period_Power_Month = preferences.getULong("CapPeakW", CapacityMinimumPower);
         MainsMeter.Peak_Month_Index = preferences.getULong("CapPeakMonth", 0);    // checked against the current month in UpdateCapacity()
         MaxCurrent = preferences.getUShort("MaxCurrent", MAX_CURRENT); 
@@ -1897,6 +1913,9 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         doc["home_battery"]["guard_soc_high"] = HomeBatteryProtectSoCHigh / 10.0;  // %, battery may feed the EV at/above (0 = off)
         doc["home_battery"]["guard_soc_low"] = HomeBatteryProtectSoCLow / 10.0;    // %, protect again at/below
         doc["home_battery"]["guard_active"] = isHomeBatteryProtectActive() ? 1 : 0;
+        doc["home_battery"]["guard_stop"] = BatteryGuardStop;               // min, 0 = off
+        doc["home_battery"]["guard_stop_timer"] = BatteryGuardStopTimer;    // s the battery discharged with the EV at MinCurrent
+        doc["home_battery"]["guard_stopped"] = BatteryGuardStopped ? 1 : 0; // charging stopped, waiting for an idle battery
 
         doc["ev_meter"]["description"] = EMConfig[EVMeter.Type].Desc;
         doc["ev_meter"]["address"] = EVMeter.Address;
@@ -2058,6 +2077,15 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
                 shadowPrefs.markUShort("BatProtHigh", &HomeBatteryProtectSoCHigh);
                 doc["battery_guard_soc_high"] = HomeBatteryProtectSoCHigh / 10.0;
             } else doc["battery_guard_soc_high"] = "Value not allowed!";
+        }
+
+        if(request->hasParam("battery_guard_stop")) {
+            int v = request->getParam("battery_guard_stop")->value().toInt();
+            if (v >= 0 && v <= 60 && LoadBl < 2) {
+                BatteryGuardStop = v;
+                shadowPrefs.markUChar("BatGuardStop", &BatteryGuardStop);
+                doc["battery_guard_stop"] = BatteryGuardStop;
+            } else doc["battery_guard_stop"] = "Value not allowed!";
         }
 
         if(request->hasParam("battery_guard_soc_low")) {

@@ -42,6 +42,7 @@ Set topics (`<prefix>/Set/…`):
 | `HomeBatteryOffset` / `HomeBatteryFullSoC` | W / % |
 | `BatteryGuard` | `On` / `Off` |
 | `BatteryGuardSoCHigh` / `BatteryGuardSoCLow` | % |
+| `BatteryGuardStop` | min (0 = off, max 60) |
 | `MainsMeterTimeout` | s (11–120) |
 
 Published: `CapacityPeak`, `MaxSumMains` (one decimal), `CapacityMargin`, `HomeBatteryPower`,

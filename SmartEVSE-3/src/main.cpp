@@ -205,6 +205,10 @@ uint8_t HomeBatteryProtect = 0;                                             // 1
 uint16_t HomeBatteryProtectSoCHigh = 0;                                     // 0.1%; at or above: battery may discharge into the EV (protect paused), 0 = off (stored)
 uint16_t HomeBatteryProtectSoCLow = 0;                                      // 0.1%; at or below: protect active again (stored)
 bool homeBatteryProtectPaused = false;                                      // hysteresis state between SoCLow and SoCHigh
+uint8_t BatteryGuardStop = 0;                                               // minutes; stop charging when the battery keeps discharging with the EV at MinCurrent (0 = off, stored)
+uint16_t BatteryGuardStopTimer = 0;                                         // seconds the battery discharged with the EV at MinCurrent
+bool BatteryGuardStopped = false;                                           // charging was stopped by Battery Guard; restart only when the battery is idle
+time_t BatteryGuardLastDischarge = 0;                                       // last time the battery discharged
 
 // Is home battery protect active now? SoC hysteresis: paused at/above SoCHigh, active again at/below SoCLow
 bool isHomeBatteryProtectActive(void) {
@@ -856,6 +860,12 @@ char IsCurrentAvailable(void) {
         }
     }
 
+    // Charging was stopped by Battery Guard: wait until the home battery stopped discharging for 60 seconds
+    if (BatteryGuardStopped) {
+        if (BatteryGuardLastDischarge && time(NULL) - BatteryGuardLastDischarge < 60) return 0;
+        BatteryGuardStopped = false;
+    }
+
     ActiveEVSE++;                                                           // Do calculations with one more EVSE
     if (ActiveEVSE > NR_EVSES) ActiveEVSE = NR_EVSES;
     Baseload = MainsMeter.Imeasured - TotalCurrent;                         // Calculate Baseload (load without any active EVSE)
@@ -1472,6 +1482,26 @@ void Timer1S_singlerun(void) {
             if (State == STATE_C) setState(STATE_C1);                   // tell EV to stop charging
             setErrorFlags(LESS_6A);                                     // Set error: LESS_6A
         }
+    }
+
+    // Battery Guard stop: in Smart mode Battery Guard lowers the EV while the home battery discharges, but not below
+    // MinCurrent. When the battery keeps discharging with the EV at MinCurrent for BatteryGuardStop minutes, the
+    // battery is still feeding the EV: stop charging (LESS_6A) until the battery has been idle for 60 seconds.
+    {
+        bool batteryFresh = homeBatteryLastUpdate && (time(NULL) - homeBatteryLastUpdate) <= 60;
+        bool discharging = batteryFresh && homeBatteryCurrent <= -3;
+        if (discharging) BatteryGuardLastDischarge = time(NULL);
+        bool guardOn = BatteryGuardStop && Mode == MODE_SMART && LoadBl < 2 && batteryFresh && isHomeBatteryProtectActive();
+        if (guardOn && discharging && State == STATE_C && Balanced[0] <= MinCurrent * 10) {
+            if (++BatteryGuardStopTimer >= BatteryGuardStop * 60) {
+                _LOG_A("Battery Guard: home battery still discharging with the EV at %u A, stop charging.\n", MinCurrent);
+                BatteryGuardStopTimer = 0;
+                BatteryGuardStopped = true;
+                setState(STATE_C1);                                     // tell EV to stop charging
+                setErrorFlags(LESS_6A);                                 // restarts via IsCurrentAvailable()
+            }
+        } else BatteryGuardStopTimer = 0;
+        if (BatteryGuardStopped && !guardOn) BatteryGuardStopped = false;   // guard switched off, paused (SoC) or other mode
     }
 
     if (ChargeDelay) setChargeDelay(ChargeDelay-1);                     // Decrease Charge Delay counter

@@ -25,6 +25,15 @@ Every change is added to **Unreleased** first; at the next release that section 
   "Other on the meter" = mains minus car (the charger does not know the solar production).
   With an RFID reader the dashboard asks to present the card while access is off.
 
+- **Battery Guard stop (only on `release/personal-dashboard`):** Battery Guard lowers the EV while the
+  home battery discharges, but never below the minimum current (6 A), so a battery in self-consumption
+  mode still covers ~1.4 kW of the EV. New setting `BatteryGuardStop` (minutes, 0 = off): when the
+  battery keeps discharging with the EV at the minimum current for that long, charging stops
+  ("No Power Available") and restarts once the battery has been idle for 60 s. MQTT
+  `Set/BatteryGuardStop` (+ HA number "Battery Guard Stop"), REST `battery_guard_stop`, `/settings`
+  `home_battery.guard_stop`, `guard_stop_timer`, `guard_stopped`. Field *Stop after* on All settings;
+  the dashboard shows "Paused by Battery Guard". *Not tested on real hardware yet.*
+
 ## v3.11.3-Clarijs.3 — 10 Nov 2026
 
 - Web: the **Help** button opens the documentation of this fork (was a 404 on dingo35).
