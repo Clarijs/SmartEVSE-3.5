@@ -7,22 +7,15 @@
     <link rel="icon" href="favicon.ico">
 <style>
 /* same design language as index.html (self-contained) */
-:root{
-  --bg:#f4f6f9; --bg2:#ffffff; --bg3:#eef1f5; --fg:#171c24; --fg2:#5b6472;
-  --line:#dfe4ea; --acc:#2f7bff; --ok:#1fa971; --err:#e5484d;
-  --radius:14px; --shadow:0 1px 3px rgba(20,30,50,.08);
-}
+:root{--bg:#F3F5F4;--bg2:#FFFFFF;--bg3:#EEF1F0;--fg:#18201D;--fg2:#56625D;--line:#DDE3E0;--acc:#1C8C6E;--onacc:#FFFFFF;--ok:#1C8C6E;--err:#B0413E;--chg:#1C8C6E;--radius:18px;--shadow:none}
 @media (prefers-color-scheme: dark){
-  :root{ --bg:#0e1116; --bg2:#161b23; --bg3:#1d242e; --fg:#e8edf4; --fg2:#8b95a5;
-    --line:#28303c; --acc:#4d8dff; --shadow:0 1px 3px rgba(0,0,0,.4);}
+  :root{--bg:#0F1412;--bg2:#18201D;--bg3:#222C28;--fg:#E8EEEB;--fg2:#93A19B;--line:#2C3733;--acc:#3CC19A;--onacc:#0E1714;--ok:#3CC19A;--err:#E06C68;--chg:#3CC19A;--shadow:none}
 }
-:root[data-theme="dark"]{ --bg:#0e1116; --bg2:#161b23; --bg3:#1d242e; --fg:#e8edf4; --fg2:#8b95a5;
-  --line:#28303c; --acc:#4d8dff; --shadow:0 1px 3px rgba(0,0,0,.4);}
-:root[data-theme="light"]{ --bg:#f4f6f9; --bg2:#ffffff; --bg3:#eef1f5; --fg:#171c24; --fg2:#5b6472;
-  --line:#dfe4ea; --acc:#2f7bff; --shadow:0 1px 3px rgba(20,30,50,.08);}
+:root[data-theme="dark"]{--bg:#0F1412;--bg2:#18201D;--bg3:#222C28;--fg:#E8EEEB;--fg2:#93A19B;--line:#2C3733;--acc:#3CC19A;--onacc:#0E1714;--ok:#3CC19A;--err:#E06C68;--chg:#3CC19A;--shadow:none}
+:root[data-theme="light"]{--bg:#F3F5F4;--bg2:#FFFFFF;--bg3:#EEF1F0;--fg:#18201D;--fg2:#56625D;--line:#DDE3E0;--acc:#1C8C6E;--onacc:#FFFFFF;--ok:#1C8C6E;--err:#B0413E;--chg:#1C8C6E;--radius:18px;--shadow:none}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
+body{background:var(--bg);color:var(--fg);font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
   -webkit-text-size-adjust:100%}
 a{color:var(--acc);text-decoration:none}
 .wrap{max-width:1060px;margin:0 auto;padding:12px clamp(10px,3vw,24px) 60px}
@@ -54,7 +47,7 @@ header{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px 
 .btn{appearance:none;border:1px solid var(--line);background:var(--bg3);color:var(--fg);
   border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer}
 .btn:active{transform:scale(.97)}
-.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--onacc)}
 .btn.sm{padding:5px 11px;font-size:13px}
 /* Phone: release rows go compact so Standard+Debug always share one line.
    Row = name/notes line + [version | Standard Debug] line. The version+
@@ -76,7 +69,21 @@ header{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px 
   padding:9px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99;max-width:90vw}
 #toast.show{opacity:.92}
 </style>
-  </head>
+  <style>
+/* Clarijs look: same style as the dashboard */
+.card{padding:18px 20px;border-radius:var(--radius)}
+.card h2{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg);margin:0 0 10px}
+.section h2{font-size:19px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg)}
+.section{margin-top:30px}
+.btn{border-radius:12px;min-height:40px}
+.modes button{border-radius:14px;min-height:46px}
+input[type=text],input[type=number],input[type=password],input[type=datetime-local],input[type=url],input[type=time],select{border-radius:10px;min-height:38px}
+header{background:var(--bg);border-bottom:1px solid var(--line)}
+.hbar h1{font-size:19px}
+.big{font-size:24px}
+input[type=checkbox]{accent-color:var(--acc);width:18px;height:18px}
+</style>
+</head>
   <body>
     <header>
       <div class="hbar">
@@ -85,7 +92,7 @@ header{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px 
           <span>SmartEVSE<span class="hmeta" id="hd-serial" style="font-weight:400"></span><span class="hmeta" id="hd-meta" style="margin-left:10px">&hellip;</span></span>
         </h1>
         <span class="spacer"></span>
-        <a class="btn sm" href="/">Back</a>
+        <a class="btn sm" href="advanced.html">Back</a>
       </div>
     </header>
     <div class="wrap">
