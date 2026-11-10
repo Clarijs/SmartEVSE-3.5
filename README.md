@@ -66,7 +66,7 @@ Changes are offered to dingo35 as small pull requests, one subject each:
 | Monthly peak sync (`Set/CapacityPeakSync`) | [#425](https://github.com/dingo35/SmartEVSE-3.5/pull/425) | in review |
 | Max Sum Mains in 0.1 A steps | [#432](https://github.com/dingo35/SmartEVSE-3.5/pull/432) | open |
 | Smart mode start current (bug fix) | [#429](https://github.com/dingo35/SmartEVSE-3.5/pull/429) | open |
-| Measured mains voltage | `pr/measured-voltage` | ready |
+| Measured mains voltage | [#437](https://github.com/dingo35/SmartEVSE-3.5/pull/437) | open |
 | Mode Peak + margin | [#430](https://github.com/dingo35/SmartEVSE-3.5/pull/430) | draft, after #425/#432 |
 | Home battery in watts | [#434](https://github.com/dingo35/SmartEVSE-3.5/pull/434) | open |
 | Battery Guard | [#435](https://github.com/dingo35/SmartEVSE-3.5/pull/435) | open |
