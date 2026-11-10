@@ -1,0 +1,58 @@
+# Troubleshooting
+
+[← Back to the overview](../../README.md)
+
+## "Communication Error", charging stops and restarts
+
+**Symptom:** the charger shows *Communication Error*, stops, and ~35 s later starts again. Happens
+several times per hour.
+
+**Cause:** with `MAINS MET = API` the charger needs a mains measurement at least every 11 s. A P1
+reader on Wi-Fi (especially an ESP8266 with a signal around −75 dBm or weaker) sometimes holds its
+messages back for 5–20 s: they all arrive afterwards, but too late.
+
+**Check:** subscribe to `<prefix>/Set/MainsMeter` on your broker and look at the time between
+messages. Gaps of 5–20 s followed by a burst of messages = Wi-Fi delay at the reader.
+
+**Fix, in this order:**
+1. Improve the reader's Wi-Fi: access point closer, lock the reader to one access point, higher
+   transmit power, or an ESP32 / ESP with external antenna. Aim for better than −70 dBm.
+2. On an ESP8266: `wifi: power_save_mode: none`, and throttle the sensors you send to Home Assistant
+   (use `get_raw_state()` for the SmartEVSE).
+3. Set `Set/MainsMeterTimeout` to 20–30 s, so a short hiccup no longer stops charging.
+
+## The home battery charges the car
+
+| Situation | Cause | Fix |
+|---|---|---|
+| At the start of each quarter, with `CAP MODE = Flanders` | Flanders allows more than the peak when the quarter started quiet; the battery shaves it | use **mode Peak** |
+| The battery holds the grid exactly at its threshold while the car charges | charger margin too close to the battery threshold | margin larger than the battery's distance to the peak (e.g. 55 W vs 30 W), **Battery Guard** on |
+| In daytime, grid at 0 W, battery discharging | battery covers house and car (self-consumption) | **Battery Guard** on (works like Solar), or mode Solar |
+| One night per year, battery goes to ~0 % | battery SOH calibration (e.g. Huawei): reserve is ignored | nothing to fix; the battery recharges afterwards |
+
+## The car starts at full current and overshoots
+
+Fixed in this firmware (start current is calculated, setpoint capped at the measured headroom). If it
+still happens, check that an **EV meter** is configured: the headroom cap uses it.
+
+## The current swings (e.g. 6 ↔ 20 A)
+
+Happens when a large battery discharge is counted while the battery value lags behind the mains
+measurement. Send the battery power more often (every second), and keep Battery Guard on so the
+charger settles where the battery stays idle.
+
+## The mains stays ~100 W under the limit
+
+Most cars draw a little less than the setpoint. This firmware allows up to 1 A of that under-draw on
+top of the headroom, once the car follows the setpoint. With a larger margin you also get more room:
+check `capacity_margin`.
+
+## Monthly peak wrong after the first of the month
+
+During the first quarter of a month an external peak is ignored (the meter may still report last
+month's value). From 00:15 the peak follows the meter again.
+
+## Going back to the official firmware
+
+This firmware is unsigned. Flash an official *unsigned* build of dingo35 first, or flash over USB
+(`HowToFlash.txt` in the release zip).

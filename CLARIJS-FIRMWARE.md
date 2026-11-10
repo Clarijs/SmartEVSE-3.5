@@ -442,6 +442,9 @@ P1 port ──> ESP8266 (ESPHome) ──MQTT──> SmartEVSE (CAP MODE Peak)
 ESPHome (excerpt; give the `dsmr` sensors the ids used below):
 
 ```yaml
+wifi:
+  power_save_mode: none     # ESP8266: fewer delayed messages
+
 mqtt:
   broker: 192.168.0.129
   username: esphome
@@ -457,14 +460,14 @@ interval:
     then:
       - if:
           condition:
-            lambda: 'return !isnan(id(p_del).state) && !isnan(id(p_ret).state);'
+            lambda: 'return !isnan(id(p_del).get_raw_state()) && !isnan(id(p_ret).get_raw_state());'
           then:
             - mqtt.publish:
                 topic: SmartEVSE-08512/Set/MainsMeter
                 payload: !lambda |-
-                  float v = id(v_l1).state;
+                  float v = id(v_l1).get_raw_state();
                   if (isnan(v) || v < 180 || v > 270) v = 230.0;
-                  float w = (id(p_del).state - id(p_ret).state) * 1000.0;
+                  float w = (id(p_del).get_raw_state() - id(p_ret).get_raw_state()) * 1000.0;
                   int l1 = (int) lroundf(w / v * 10.0);
                   float e1 = id(e_t1).get_raw_state(), e2 = id(e_t2).get_raw_state();
                   long wh = (isnan(e1) || isnan(e2)) ? -1 : lround((e1 + e2) * 1000.0);
