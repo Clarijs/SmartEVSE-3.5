@@ -61,7 +61,7 @@ p.ex{margin:0;font-size:14px;color:var(--tx2);line-height:1.5}
 .cell i{display:block;background:var(--acc);border-radius:8px;transition:height .6s}
 .soc{font-size:44px;font-weight:700;line-height:1}
 svg.chart{width:100%;height:200px;display:block}
-.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
 .mode{text-align:left;display:flex;flex-direction:column;gap:10px;padding:18px;min-height:130px;border-radius:20px;background:var(--card);color:var(--tx);border:1px solid var(--line);cursor:pointer}
 .mode[aria-pressed=true]{border:3px solid var(--acc);box-shadow:0 6px 20px rgba(0,0,0,.10)}
 .mode .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -129,7 +129,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
       <div class="ch meta" style="margin-bottom:8px"><span>Grid now</span><span id="c-ceil">&mdash;</span></div>
       <div class="bar" role="img" id="c-bar" aria-label="Grid power against the ceiling"><i id="c-house" style="background:var(--house);width:0"></i><i id="c-car" style="background:var(--acc);width:0"></i></div>
       <div class="legend" style="margin-top:10px">
-        <span><i class="sw" style="background:var(--house)"></i>House <b id="c-hw">&mdash;</b></span>
+        <span><i class="sw" style="background:var(--house)"></i>Other on the meter <b id="c-hw">&mdash;</b></span>
         <span><i class="sw" style="background:var(--acc)"></i>Car <b id="c-cw">&mdash;</b></span>
         <span><i class="sw" style="background:var(--soft);border:1px solid var(--line)"></i>Room left <b id="c-rw">&mdash;</b></span>
       </div>
@@ -139,7 +139,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
       <div class="stat"><div class="l">Grid now</div><div class="v" id="c-grid">&mdash;</div></div>
       <div class="stat"><div class="l">Voltage</div><div class="v" id="c-volt">&mdash;</div></div>
     </div>
-    <p class="ex" id="c-ex">The car gets what is left under your monthly peak. When the kettle goes on, the car slows down for a moment so the peak is never raised.</p>
+    <p class="ex" id="c-ex">The car gets what is left under your monthly peak. “Other on the meter” is what the meter sees besides the car (house minus solar and battery). When the kettle goes on, the car slows down for a moment so the peak is never raised.</p>
   </section>
 
   <section class="card hidden" id="bat">
@@ -250,7 +250,6 @@ function render() {
   const ev = Math.max(0, em.import_active_power || 0);
   const batOn = typeof hb.power === "number";
   const bat = batOn ? hb.power : 0;
-  const house = Math.max(0, grid - ev - Math.max(0, bat));
   const ceil = ceilingW(s, volt, e.nrofphases);
   const room = Math.max(0, ceil - grid);
 
@@ -306,7 +305,7 @@ function render() {
   $("c-peak").textContent = s.capacity_peak_month ? fmtW(s.capacity_peak_month) : "—";
   $("c-grid").textContent = fmtW(grid);
   $("c-volt").textContent = volt.toFixed(1) + " V";
-  $("c-ex").textContent = s.capacity_mode === 4 ? "The car gets what is left under your monthly peak. When the kettle goes on, the car slows down for a moment so the peak is never raised."
+  $("c-ex").textContent = s.capacity_mode === 4 ? "The car gets what is left under your monthly peak. \u201cOther on the meter\u201d is what the meter sees besides the car (house minus solar and battery). When the kettle goes on, the car slows down for a moment so the peak is never raised."
     : s.capacity_mode === 3 ? "Flanders mode spreads a 15-minute budget. The instantaneous power may go above the peak; the quarter average stays under it."
     : "The car gets what is left under Max Sum Mains.";
   $("q-mw").classList.toggle("hidden", !(s.capacity_mode >= 3));
