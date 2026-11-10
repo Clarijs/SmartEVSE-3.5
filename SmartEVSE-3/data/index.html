@@ -249,7 +249,8 @@ function ceilingW(s, volt, phases) {
 function render() {
   const s = d.settings, e = d.evse, hb = d.home_battery || {}, em = d.ev_meter || {};
   const volt = s.capacity_voltage || s.mains_voltage || 230;
-  const ph = d.phase_currents || {};
+  // real meter values: phase_currents itself includes the battery discharge when Battery Guard is active
+  const ph = (d.phase_currents && d.phase_currents.original_data) || d.phase_currents || {};
   const grid = ((ph.L1 || 0) + (ph.L2 || 0) + (ph.L3 || 0)) / 10 * volt;
   const ev = Math.max(0, em.import_active_power || 0);
   // battery card only when a battery power is received, and not stale (> 2 min without update)
