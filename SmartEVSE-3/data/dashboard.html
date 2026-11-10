@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SmartEVSE dashboard</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{--bg:#F3F5F4;--card:#FFFFFF;--line:#DDE3E0;--soft:#EEF1F0;--tx:#18201D;--tx2:#3C4844;--tx3:#56625D;--acc:#1C8C6E;--accfg:#0B6E5A;--accbg:#E3F5EF;--house:#8A9792;--bat:#D9822B;--warn:#B0413E;--hero:#18201D;--hero2:#222C28;--herotx:#F3F5F4;--herotx2:#A9B6B1;--mint:#7FE0C3}
+@media (prefers-color-scheme:dark){:root{--bg:#0F1412;--card:#18201D;--line:#2C3733;--soft:#222C28;--tx:#E8EEEB;--tx2:#C3CEC9;--tx3:#93A19B;--acc:#3CC19A;--accfg:#7FE0C3;--accbg:#173A30;--house:#6E7C77;--bat:#E89A4C;--warn:#E06C68;--hero:#0A0E0D;--hero2:#18201D}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accfg)}
+button,input{font-family:inherit;font-size:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:12px;background:var(--hero);display:flex;align-items:center;justify-content:center}
+.name{font-weight:700;font-size:20px}
+.sub{font-size:13px;color:var(--tx3)}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--house)}
+.ok{background:#1C8C6E}.bad{background:var(--warn)}.wait{background:#F2B661}
+.hero{background:var(--hero);color:var(--herotx);border-radius:24px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:center}
+@media (min-width:860px){.hero{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}}
+.state{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--mint);font-weight:600}
+.big{font-size:56px;font-weight:700;line-height:1;margin:10px 0}
+.big small{font-size:24px;color:var(--herotx2);font-weight:600}
+.hline{font-size:15px;color:#C9D3CF;line-height:1.45}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{background:var(--hero2);border-radius:16px;padding:14px}
+.tile .l{font-size:12px;color:var(--herotx2)}
+.tile .v{font-size:24px;font-weight:600;white-space:nowrap}
+.acts{display:flex;flex-wrap:wrap;gap:10px;grid-column:1/-1;align-items:center}
+.btn{min-height:46px;padding:0 20px;border-radius:14px;border:1px solid #3A4743;background:transparent;color:var(--herotx);font-weight:500;cursor:pointer}
+.btn.pri{background:var(--mint);color:#0E1714;border:none;font-weight:600}
+.later{display:none;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.later.show{display:flex}
+.later input{min-height:44px;border-radius:10px;border:1px solid #3A4743;background:var(--hero2);color:var(--herotx);padding:0 10px;color-scheme:dark}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:16px}
+.ch{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h2{margin:0;font-size:20px}
+.meta{font-size:13px;color:var(--tx3)}
+.bar{height:28px;border-radius:10px;background:var(--soft);overflow:hidden;display:flex;position:relative}
+.bar i{display:block;height:100%;transition:width .6s}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stat{background:var(--bg);border-radius:14px;padding:12px}
+.stat .l{font-size:12px;color:var(--tx3)}
+.stat .v{font-size:21px;font-weight:600;white-space:nowrap}
+p.ex{margin:0;font-size:14px;color:var(--tx2);line-height:1.5}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;background:var(--soft);color:var(--tx2)}
+.badge.on{background:var(--accbg);color:var(--accfg)}
+.batt{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.cell{width:90px;height:140px;border:4px solid var(--tx);border-radius:16px;position:relative;padding:6px;display:flex;flex-direction:column;justify-content:flex-end}
+.cell:before{content:"";position:absolute;top:-12px;left:27px;width:28px;height:8px;background:var(--tx);border-radius:4px 4px 0 0}
+.cell i{display:block;background:var(--acc);border-radius:8px;transition:height .6s}
+.soc{font-size:44px;font-weight:700;line-height:1}
+svg.chart{width:100%;height:200px;display:block}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.mode{text-align:left;display:flex;flex-direction:column;gap:10px;padding:18px;min-height:130px;border-radius:20px;background:var(--card);color:var(--tx);border:1px solid var(--line);cursor:pointer}
+.mode[aria-pressed=true]{border:3px solid var(--acc);box-shadow:0 6px 20px rgba(0,0,0,.10)}
+.mode .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mode .n{font-size:20px;font-weight:700}
+.mode .b{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--soft);color:var(--tx2)}
+.mode[aria-pressed=true] .b{background:var(--acc);color:#fff}
+.mode .d{font-size:14px;line-height:1.5;color:var(--tx2)}
+.qs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.qs label,.qs .lb{font-size:14px;font-weight:600}
+.f{display:flex;flex-direction:column;gap:8px}
+input[type=range]{width:100%;accent-color:var(--acc)}
+input[type=number]{width:110px;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:16px}
+.tog{width:64px;height:36px;border-radius:999px;border:none;padding:4px;display:flex;background:var(--line);cursor:pointer}
+.tog span{width:28px;height:28px;border-radius:50%;background:#fff;display:block}
+.tog[aria-pressed=true]{background:var(--acc);justify-content:flex-end}
+.hidden{display:none!important}
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:var(--tx3)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+@media (max-width:520px){.big{font-size:44px}.tile .v,.stat .v{font-size:18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7FE0C3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
+    <div><div class="name" id="hd-name">SmartEVSE</div><div class="sub" id="hd-ver">connecting&hellip;</div></div>
+  </div>
+  <div class="pills">
+    <span class="pill"><span class="dot" id="p-meter"></span><span id="p-meter-t">Mains meter</span></span>
+    <span class="pill" id="p-mqtt-w"><span class="dot" id="p-mqtt"></span><span id="p-mqtt-t">MQTT</span></span>
+    <span class="pill" id="p-temp">&mdash; &deg;C</span>
+  </div>
+</header>
+
+<section class="hero" aria-live="polite">
+  <div>
+    <div class="state"><span class="dot" id="h-dot"></span><span id="h-state">&mdash;</span></div>
+    <div class="big"><span id="h-kw">0.00</span><small>&nbsp;kW</small></div>
+    <div class="hline" id="h-line">&nbsp;</div>
+  </div>
+  <div class="tiles">
+    <div class="tile"><div class="l">Current</div><div class="v" id="t-amp">&mdash;</div><div class="l" id="t-ph">&nbsp;</div></div>
+    <div class="tile"><div class="l">This session</div><div class="v" id="t-kwh">&mdash;</div><div class="l" id="t-max">&nbsp;</div></div>
+    <div class="tile"><div class="l">Car</div><div class="v" id="t-car">&mdash;</div><div class="l" id="t-car2">&nbsp;</div></div>
+  </div>
+  <div class="acts">
+    <button class="btn pri" id="b-pause" type="button">Pause charging</button>
+    <button class="btn" id="b-later" type="button">Start later&hellip;</button>
+    <div class="later" id="later">
+      <label for="l-start">Start</label><input type="datetime-local" id="l-start">
+      <label for="l-stop">Stop</label><input type="datetime-local" id="l-stop">
+      <button class="btn pri" id="l-ok" type="button">Set</button>
+    </div>
+    <span class="hline" id="h-sched"></span>
+  </div>
+</section>
+
+<div class="row">
+  <section class="card" id="cap">
+    <div class="ch"><h2>Capacity tariff</h2><span class="meta" id="c-mode">&mdash;</span></div>
+    <div>
+      <div class="ch meta" style="margin-bottom:8px"><span>Grid now</span><span id="c-ceil">&mdash;</span></div>
+      <div class="bar" role="img" id="c-bar" aria-label="Grid power against the ceiling"><i id="c-house" style="background:var(--house);width:0"></i><i id="c-car" style="background:var(--acc);width:0"></i></div>
+      <div class="legend" style="margin-top:10px">
+        <span><i class="sw" style="background:var(--house)"></i>House <b id="c-hw">&mdash;</b></span>
+        <span><i class="sw" style="background:var(--acc)"></i>Car <b id="c-cw">&mdash;</b></span>
+        <span><i class="sw" style="background:var(--soft);border:1px solid var(--line)"></i>Room left <b id="c-rw">&mdash;</b></span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="l">Monthly peak</div><div class="v" id="c-peak">&mdash;</div></div>
+      <div class="stat"><div class="l">Grid now</div><div class="v" id="c-grid">&mdash;</div></div>
+      <div class="stat"><div class="l">Voltage</div><div class="v" id="c-volt">&mdash;</div></div>
+    </div>
+    <p class="ex" id="c-ex">The car gets what is left under your monthly peak. When the kettle goes on, the car slows down for a moment so the peak is never raised.</p>
+  </section>
+
+  <section class="card hidden" id="bat">
+    <div class="ch"><h2>Home battery</h2><span class="badge" id="b-guard">Battery Guard off</span></div>
+    <div class="batt">
+      <div class="cell" aria-hidden="true"><i id="b-fill" style="height:0"></i></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="soc" id="b-soc">&mdash;</div>
+        <div style="font-size:15px;color:var(--tx2)" id="b-pw">&mdash;</div>
+        <div class="meta" id="b-win">&nbsp;</div>
+      </div>
+    </div>
+    <p class="ex">Your battery is kept for the house. As soon as it starts to discharge into the car, the charger lowers the current.</p>
+  </section>
+</div>
+
+<section class="card">
+  <div class="ch"><h2>Last 10 minutes</h2>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--tx);height:3px;width:14px"></i>Grid</span>
+      <span><i class="sw" style="background:var(--acc);height:3px;width:14px"></i>Car</span>
+      <span id="lg-bat"><i class="sw" style="background:var(--bat);height:3px;width:14px"></i>Battery</span>
+      <span><i class="sw" style="border-top:2px dashed var(--warn);width:14px;height:0;border-radius:0"></i>Ceiling</span>
+    </div>
+  </div>
+  <svg class="chart" id="chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Grid, car and battery power over the last ten minutes">
+    <line id="k-ceil" x1="0" x2="600" y1="-10" y2="-10" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+    <line id="k-zero" x1="0" x2="600" y1="170" y2="170" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <polyline id="k-grid" fill="none" stroke="var(--tx)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <polyline id="k-car" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
+    <polyline id="k-bat" fill="none" stroke="var(--bat)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <div class="ch meta"><span>&minus;10 min</span><span id="k-scale"></span><span>now</span></div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px">
+  <h2>How should I charge?</h2>
+  <div class="modes" id="modes">
+    <button type="button" class="mode" data-mode="1" aria-pressed="false"><span class="t"><span class="n">Normal</span><span class="b">Fastest</span></span><span class="d">Always charge at the maximum current. Ignores the meter.</span></button>
+    <button type="button" class="mode" data-mode="3" aria-pressed="false"><span class="t"><span class="n">Smart</span><span class="b">Recommended</span></span><span class="d">Charge as fast as possible under your monthly peak. Uses the meter.</span></button>
+    <button type="button" class="mode" data-mode="2" aria-pressed="false"><span class="t"><span class="n">Solar</span><span class="b">Cheapest</span></span><span class="d">Charge only on surplus solar power. Slower, but free energy.</span></button>
+    <button type="button" class="mode" data-mode="0" aria-pressed="false"><span class="t"><span class="n">Off</span><span class="b">Stop</span></span><span class="d">Do not charge. The car stays connected.</span></button>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Quick settings</h2>
+  <div class="qs">
+    <div class="f">
+      <label for="q-ov">Charge current</label>
+      <input type="range" id="q-ov" min="0" max="10" step="1" value="0">
+      <div class="ch meta"><span id="q-ovv">automatic</span><span id="q-ovmax"></span></div>
+    </div>
+    <div class="f" id="q-mw">
+      <label for="q-m">Stay under my peak by</label>
+      <div style="display:flex;align-items:center;gap:8px"><input type="number" id="q-m" min="0" max="1000" step="5"><span style="font-size:14px;color:var(--tx2)">W</span></div>
+      <div class="meta">Larger = safer, smaller = faster</div>
+    </div>
+    <div class="f">
+      <span class="lb" id="q-gl">Battery Guard</span>
+      <button type="button" class="tog" id="q-g" aria-pressed="false" aria-labelledby="q-gl"><span></span></button>
+      <div class="meta">Keep the home battery out of the car (Smart mode)</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="/">All settings (advanced)</a>
+  <span id="f-upd">&nbsp;</span>
+  <a href="https://github.com/Clarijs/SmartEVSE-3.5/tree/release/capacity-peak-build#readme">Help</a>
+</footer>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const fmtW = (w) => Math.round(w).toLocaleString("nl-BE").replace(/\./g, " ") + " W";
+let d = null, fails = 0, timer = 0, lastActiveMode = 3, editing = 0;
+const HIST_MS = 600000, POLL_MS = 3000;
+let hist = [];
+try { hist = JSON.parse(sessionStorage.getItem("dash-hist") || "[]"); } catch (e) { hist = []; }
+
+function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2500); }
+
+function post(params) {
+  return fetch("/settings?" + new URLSearchParams(params).toString(), { method: "POST", cache: "no-store" })
+    .then((r) => r.json())
+    .then((j) => { for (const k in j) if (typeof j[k] === "string" && /not allowed|failed|Can only/i.test(j[k])) { toast(k + ": " + j[k]); return false; } return true; })
+    .catch(() => { toast("Request failed"); return false; })
+    .finally(() => { clearTimeout(timer); timer = setTimeout(poll, 400); });
+}
+
+function setDot(el, cls) { el.className = "dot " + (cls || ""); }
+
+function ceilingW(s, volt, phases) {
+  const peak = s.capacity_peak_month || 0, margin = s.capacity_margin || 0;
+  if ((s.capacity_mode === 3 || s.capacity_mode === 4) && peak > 0) return peak - margin;
+  if (s.current_max_sum_mains_precise) return s.current_max_sum_mains_precise * volt * (phases === 3 ? 3 : 1);
+  return 0;
+}
+
+function render() {
+  const s = d.settings, e = d.evse, hb = d.home_battery || {}, em = d.ev_meter || {};
+  const volt = s.capacity_voltage || s.mains_voltage || 230;
+  const ph = d.phase_currents || {};
+  const grid = ((ph.L1 || 0) + (ph.L2 || 0) + (ph.L3 || 0)) / 10 * volt;
+  const ev = Math.max(0, em.import_active_power || 0);
+  const batOn = typeof hb.power === "number";
+  const bat = batOn ? hb.power : 0;
+  const house = Math.max(0, grid - ev - Math.max(0, bat));
+  const ceil = ceilingW(s, volt, e.nrofphases);
+  const room = Math.max(0, ceil - grid);
+
+  // header
+  $("hd-name").textContent = d.mqtt && d.mqtt.topic_prefix ? d.mqtt.topic_prefix : "SmartEVSE-" + d.serialnr;
+  $("hd-ver").textContent = "Firmware " + d.version;
+  const metOk = s.mains_meter === "Disabled" || !/Communication/i.test(e.error);
+  setDot($("p-meter"), metOk ? "ok" : "bad");
+  $("p-meter-t").textContent = "Mains meter " + (s.mains_meter === "Disabled" ? "off" : metOk ? "OK" : "error");
+  if (d.mqtt) { setDot($("p-mqtt"), d.mqtt.status === "Connected" ? "ok" : "bad"); $("p-mqtt-t").textContent = "MQTT " + (d.mqtt.status || "").toLowerCase(); }
+  else $("p-mqtt-w").classList.add("hidden");
+  $("p-temp").textContent = "Temp " + e.temp + " °C";
+
+  // hero
+  const charging = e.state_id === 2;
+  const paused = d.mode_id === 4, off = d.mode_id === 0;
+  if (d.mode_id >= 1 && d.mode_id <= 3) lastActiveMode = d.mode_id;
+  const modeName = { 1: "Normal", 2: "Solar", 3: "Smart" }[d.mode_id] || "";
+  let st, dot, line;
+  if (e.error_id && e.error !== "None") { st = e.error; dot = "bad"; line = "The charger reports a problem. See All settings for details."; }
+  else if (paused) { st = "Paused"; dot = "wait"; line = "Charging is paused. Tap Resume to continue."; }
+  else if (off) { st = s.starttime ? "Waiting for start time" : "Off"; dot = ""; line = s.starttime ? "Charging starts at the time you set." : "Charging is switched off. Pick a mode below to start."; }
+  else if (/No Power Available/i.test(e.state)) { st = "Waiting for room"; dot = "wait"; line = (d.mode_id === 2 ? "Not enough solar power yet." : "The house uses almost all of your peak.") + " Charging starts automatically when there is room for " + s.current_min + " A."; }
+  else if (charging) { st = "Charging · " + modeName; dot = "ok"; line = ceil > 0 ? "Room left under your ceiling: " + fmtW(room) + "." + (batOn ? (bat < -50 ? " The battery is discharging." : " Battery is not used.") : "") : "Charging at the set current."; }
+  else if (d.car_connected) { st = e.state; dot = "wait"; line = "Car connected. Charging starts as soon as the car asks."; }
+  else { st = "No car connected"; dot = ""; line = "Plug in the car to start charging."; }
+  $("h-state").textContent = st; setDot($("h-dot"), dot); $("h-line").textContent = line;
+  $("h-kw").textContent = (ev / 1000).toFixed(2);
+  const amps = em.currents && em.currents.TOTAL != null && e.nrofphases ? em.currents.TOTAL / 10 / (e.nrofphases || 1) : s.charge_current / 10;
+  $("t-amp").textContent = (charging ? amps : 0).toFixed(1) + " A";
+  $("t-ph").textContent = (e.nrofphases === 3 ? "3 phases" : "1 phase") + " · set " + (s.charge_current / 10).toFixed(1) + " A";
+  $("t-kwh").textContent = ((em.charged_wh || 0) / 1000).toFixed(2) + " kWh";
+  $("t-max").textContent = "Max " + s.current_max + " A";
+  $("t-car").textContent = d.car_connected ? "Connected" : "Not connected";
+  $("t-car2").textContent = s.cablelock ? "cable lock on" : " ";
+  $("b-pause").textContent = paused ? "Resume charging" : "Pause charging";
+  $("b-pause").disabled = off;
+  $("b-pause").style.opacity = off ? .4 : 1;
+  if (s.starttime) {
+    const a = new Date(s.starttime * 1000), b = s.stoptime ? new Date(s.stoptime * 1000) : null;
+    const o = { weekday: "short", hour: "2-digit", minute: "2-digit" };
+    $("h-sched").textContent = "Planned: " + a.toLocaleString([], o) + (b ? " → " + b.toLocaleString([], o) : "") + (s.repeat ? " (daily)" : "");
+  } else $("h-sched").textContent = "";
+
+  // capacity
+  const capNames = ["Disabled", "Fixed", "Interval", "Flanders", "Peak"];
+  $("c-mode").textContent = s.capacity_mode ? "Mode " + capNames[s.capacity_mode] + ((s.capacity_mode >= 3) ? " · margin " + s.capacity_margin + " W" : "") : "Max Sum Mains " + s.current_max_sum_mains_precise + " A";
+  $("c-ceil").textContent = ceil > 0 ? "Ceiling " + fmtW(ceil) : "";
+  const pc = (w) => ceil > 0 ? Math.min(100, Math.max(0, w / ceil * 100)).toFixed(1) + "%" : "0";
+  $("c-house").style.width = pc(grid - ev); $("c-car").style.width = pc(Math.min(ev, Math.max(0, grid)));
+  $("c-hw").textContent = fmtW(Math.max(0, grid - ev)); $("c-cw").textContent = fmtW(ev); $("c-rw").textContent = fmtW(room);
+  $("c-bar").setAttribute("aria-label", "Grid " + fmtW(grid) + " of " + fmtW(ceil));
+  $("c-peak").textContent = s.capacity_peak_month ? fmtW(s.capacity_peak_month) : "—";
+  $("c-grid").textContent = fmtW(grid);
+  $("c-volt").textContent = volt.toFixed(1) + " V";
+  $("c-ex").textContent = s.capacity_mode === 4 ? "The car gets what is left under your monthly peak. When the kettle goes on, the car slows down for a moment so the peak is never raised."
+    : s.capacity_mode === 3 ? "Flanders mode spreads a 15-minute budget. The instantaneous power may go above the peak; the quarter average stays under it."
+    : "The car gets what is left under Max Sum Mains.";
+  $("q-mw").classList.toggle("hidden", !(s.capacity_mode >= 3));
+
+  // battery
+  $("bat").classList.toggle("hidden", !batOn);
+  $("lg-bat").classList.toggle("hidden", !batOn);
+  if (batOn) {
+    const soc = typeof hb.soc === "number" ? hb.soc : null;
+    $("b-soc").textContent = soc == null ? "—" : Math.round(soc) + " %";
+    $("b-fill").style.height = (soc == null ? 0 : Math.max(2, Math.min(100, soc))) + "%";
+    $("b-pw").textContent = (bat > 50 ? "Charging · " : bat < -50 ? "Discharging · " : "Idle · ") + fmtW(bat);
+    const g = $("b-guard");
+    g.textContent = !hb.guard ? "Battery Guard off" : hb.guard_active ? "Battery Guard active" : "Battery Guard paused";
+    g.classList.toggle("on", !!(hb.guard && hb.guard_active));
+    $("b-win").textContent = hb.guard && hb.guard_soc_high ? "Guard pauses at " + hb.guard_soc_high + " %, resumes at " + hb.guard_soc_low + " %" : " ";
+  }
+
+  // modes
+  document.querySelectorAll(".mode").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.mode === d.mode_id || (paused && +b.dataset.mode === lastActiveMode))));
+
+  // quick settings
+  if (Date.now() > editing) {
+    const span = s.current_max - s.current_min + 1;
+    const r = $("q-ov"); r.max = String(span);
+    const ovA = Math.round((s.override_current || 0) / 10);
+    r.value = ovA < 1 ? 0 : ovA - s.current_min + 1;
+    $("q-ovv").textContent = ovA < 1 ? "automatic" : ovA + " A fixed";
+    $("q-ovmax").textContent = "max " + s.current_max + " A";
+    if (document.activeElement !== $("q-m")) $("q-m").value = s.capacity_margin;
+  }
+  $("q-g").setAttribute("aria-pressed", String(!!hb.guard));
+
+  // history + chart
+  const now = Date.now();
+  hist.push([now, Math.round(grid), Math.round(ev), Math.round(bat), Math.round(ceil)]);
+  hist = hist.filter((p) => now - p[0] <= HIST_MS);
+  try { sessionStorage.setItem("dash-hist", JSON.stringify(hist)); } catch (er) {}
+  drawChart(now);
+  $("f-upd").textContent = "Updated " + new Date().toLocaleTimeString();
+}
+
+function drawChart(now) {
+  let hi = 1000, lo = 0;
+  hist.forEach((p) => { hi = Math.max(hi, p[1], p[2], p[4]); lo = Math.min(lo, p[1], p[3]); });
+  hi *= 1.08; lo = lo < 0 ? lo * 1.1 : 0;
+  const y = (w) => (170 - (w - lo) / (hi - lo) * 160).toFixed(1);
+  const x = (t) => (600 - (now - t) / HIST_MS * 600).toFixed(1);
+  const pts = (i) => hist.map((p) => x(p[0]) + "," + y(p[i])).join(" ");
+  $("k-grid").setAttribute("points", pts(1));
+  $("k-car").setAttribute("points", pts(2));
+  $("k-bat").setAttribute("points", d.home_battery && typeof d.home_battery.power === "number" ? pts(3) : "");
+  const c = hist.length ? hist[hist.length - 1][4] : 0;
+  $("k-ceil").setAttribute("y1", c > 0 ? y(c) : -10); $("k-ceil").setAttribute("y2", c > 0 ? y(c) : -10);
+  $("k-zero").setAttribute("y1", y(0)); $("k-zero").setAttribute("y2", y(0));
+  $("k-scale").textContent = "top " + fmtW(hi);
+}
+
+function poll() {
+  clearTimeout(timer);
+  if (document.hidden) { timer = setTimeout(poll, POLL_MS); return; }
+  fetch("/settings", { cache: "no-store" })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((j) => { d = j; fails = 0; render(); })
+    .catch(() => { if (++fails >= 2) $("hd-ver").textContent = "No response — retrying…"; })
+    .finally(() => { timer = setTimeout(poll, fails > 2 ? 15000 : POLL_MS); });
+}
+
+document.querySelectorAll(".mode").forEach((b) => b.onclick = () => { if (d) post({ mode: b.dataset.mode }); });
+$("b-pause").onclick = () => { if (!d) return; post({ mode: d.mode_id === 4 ? lastActiveMode : 4 }); };
+$("b-later").onclick = () => $("later").classList.toggle("show");
+$("l-ok").onclick = () => {
+  const a = $("l-start").value, b = $("l-stop").value;
+  if (!a) { toast("Pick a start time"); return; }
+  const p = { mode: d && d.mode_id >= 1 && d.mode_id <= 3 ? d.mode_id : lastActiveMode, starttime: a, repeat: 0 };
+  if (b) p.stoptime = b;
+  post(p).then((ok) => { if (ok) { $("later").classList.remove("show"); toast("Start time set"); } });
+};
+$("q-ov").oninput = () => { editing = Date.now() + 4000; const p = +$("q-ov").value; $("q-ovv").textContent = p < 1 ? "automatic" : (d.settings.current_min + p - 1) + " A fixed"; };
+$("q-ov").onchange = () => { const p = +$("q-ov").value; const a = p < 1 ? 0 : d.settings.current_min + p - 1; post({ override_current: a * 10 }); };
+$("q-m").onchange = (ev) => { if (ev.target.value !== "") post({ capacity_margin: ev.target.value }); };
+$("q-g").onclick = () => { if (!d) return; const on = !(d.home_battery && d.home_battery.guard); post({ battery_guard: on ? 1 : 0 }); };
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+poll();
+</script>
+</body>
+</html>

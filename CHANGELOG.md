@@ -10,6 +10,11 @@ Every change is added to **Unreleased** first; at the next release that section 
 - **Sensorbox 2 on the P1 port:** the voltage of L1 from the smart meter (register 0x0002, already part
   of every reading) is used by the capacity modes instead of 230 V. With CTs only nothing changes.
   *Not tested on real hardware.*
+- **Web dashboard (test, only on branch `release/personal-dashboard`, not in a release yet):** new page
+  `/dashboard.html` with a simple visual overview: charging status, capacity bar (house / car / room
+  under the ceiling), home battery with Battery Guard state, a 10-minute chart, big mode buttons and quick
+  settings. Uses only the existing `/settings` API; no change to the charging logic. Button *Dashboard*
+  on the main page.
 
 ## v3.11.3-Clarijs.3 — 10 Nov 2026
 
