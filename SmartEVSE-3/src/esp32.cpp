@@ -582,6 +582,12 @@ void mqtt_receive_callback(const String topic, const String payload) {
             MaxSumMainsTenths = RequestedDA % 10;
             MaxSumMainsTenthsFor = MaxSumMains;
         }
+    } else if (topic == MQTTprefix + "/Set/MainsMeterTimeout" && LoadBl < 2) {
+        int32_t t = payload.toInt();
+        if (t >= COMM_TIMEOUT && t <= 120) {
+            MainsApiTimeout = t;
+            shadowPrefs.markUChar("ApiTimeout", &MainsApiTimeout);
+        }
     } else if (topic == MQTTprefix + "/Set/CapacityMargin" && LoadBl < 2) {
         // margin in W under the capacity ceiling (Flanders, Interval, Peak); stored
         int32_t margin = payload.toInt();
@@ -622,7 +628,7 @@ void mqtt_receive_callback(const String topic, const String payload) {
             if (n == 6) SetMainsVoltageDV(V);
             // We expect 5 values (and accept -1 for unknown values)
             if (LoadBl < 2) {
-                MainsMeter.setTimeout(COMM_TIMEOUT);
+                MainsMeter.setTimeout(MainsApiTimeout);                     // API meter: configurable (default COMM_TIMEOUT)
                 MainsMeter.Irms[0] = L1;
                 MainsMeter.Irms[1] = L2;
                 MainsMeter.Irms[2] = L3;
@@ -1042,6 +1048,10 @@ void SetupMQTTClient() {
             ", \"entity_category\":\"config\"", p);
         MQTTclient.announce("Battery Guard", "switch", opt);
         snprintf(opt, sizeof(opt),
+            ", \"command_topic\":\"%s/Set/MainsMeterTimeout\", \"min\":\"11\", \"max\":\"120\", \"step\":\"1\""
+            ", \"mode\":\"box\", \"unit_of_measurement\":\"s\", \"entity_category\":\"config\"", p);
+        MQTTclient.announce("Mains Meter Timeout", "number", opt);
+        snprintf(opt, sizeof(opt),
             ", \"command_topic\":\"%s/Set/BatteryGuardSoCHigh\", \"min\":\"0\", \"max\":\"100\", \"step\":\"0.1\""
             ", \"mode\":\"box\", \"unit_of_measurement\":\"%%\", \"entity_category\":\"config\"", p);
         MQTTclient.announce("Battery Guard SoC High", "number", opt);
@@ -1119,6 +1129,7 @@ void mqttPublishData() {
         if (CapacityMode == FLANDERS || CapacityMode == PEAK)
             mqPubI("/CapacityPeak", MainsMeter.Peak_Period_Power_Month, true, 0);
         mqPubI("/CapacityMargin", CapacityMargin, true, 0);
+        if (LoadBl < 2) mqPubI("/MainsMeterTimeout", MainsApiTimeout, true, 0);
         mqPubI("/MaxSumMainsTime", MaxSumMainsTime, true, 0);
         mqPubS("/CustomButton", CustomButton ? "On" : "Off", false, 0);
         mqPubI("/ChargeCurrent", Balanced[0], true, 0);
@@ -1405,6 +1416,8 @@ void read_settings() {
         MaxSumMainsTime = preferences.getUShort("MaxSumMainsTime", MAX_SUMMAINSTIME);
         CapacityMargin = preferences.getUShort("CapMargin", CapacitySafety);
         if (CapacityMargin > 1000) CapacityMargin = CapacitySafety;
+        MainsApiTimeout = preferences.getUChar("ApiTimeout", COMM_TIMEOUT);
+        if (MainsApiTimeout < COMM_TIMEOUT || MainsApiTimeout > 120) MainsApiTimeout = COMM_TIMEOUT;
         HomeBatteryOffset = preferences.getUShort("BatOffset", 0);
         if (HomeBatteryOffset > 1000) HomeBatteryOffset = 0;
         HomeBatteryFullSoC = preferences.getUShort("BatFullSoC", 0);
@@ -1822,6 +1835,7 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         doc["settings"]["capacity_mode"] = CapacityMode;
         doc["settings"]["capacity_peak_month"] = MainsMeter.Peak_Period_Power_Month;   // W, used by CAPACITY MODE Flanders and Peak
         doc["settings"]["capacity_margin"] = CapacityMargin;                           // W under the capacity ceiling
+        doc["settings"]["mains_meter_timeout"] = MainsApiTimeout;                     // s, API mains meter
         if (MainsVoltageDV) doc["settings"]["mains_voltage"] = MainsVoltageDV / 10.0;  // V, last measured (API MainsMeter)
         doc["settings"]["capacity_voltage"] = CapacityVoltageDV() / 10.0;              // V used for the capacity calculation
         String intervalsStr = GetIntervalString();
@@ -1990,6 +2004,17 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
                     shadowPrefs.markUShort("MaxSumMains", &MaxSumMains);
                 }
                 doc["capacity_mode"] = val;
+            }
+        }
+
+        if(request->hasParam("mains_meter_timeout")) {
+            int t = request->getParam("mains_meter_timeout")->value().toInt();
+            if (t >= COMM_TIMEOUT && t <= 120 && LoadBl < 2) {
+                MainsApiTimeout = t;
+                shadowPrefs.markUChar("ApiTimeout", &MainsApiTimeout);
+                doc["mains_meter_timeout"] = MainsApiTimeout;
+            } else {
+                doc["mains_meter_timeout"] = "Value not allowed!";
             }
         }
 
@@ -2450,7 +2475,7 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
                     MainsMeter.Irms[2] = request->getParam("L3")->value().toInt();
 
                     CalcIsum();
-                    MainsMeter.setTimeout(COMM_TIMEOUT);
+                    MainsMeter.setTimeout(MainsApiTimeout);
                     for (int x = 0; x < 3; x++) {
                         char key[4]; snprintf(key, sizeof(key), "L%d", x + 1);
                         doc["original"][key] = IrmsOriginal[x];

@@ -335,6 +335,7 @@ Valid topics you can publish to are:
 /Set/MainsMeter
 /Set/EVMeter
 /Set/HomeBatteryCurrent
+/Set/MainsMeterTimeout  Seconds without an API mains measurement before Communication Error (11-120, default 11, stored)
 /Set/HomeBatteryPower  Home battery power in W (+ charging / - discharging), optionally with SoC in %: "1234" or "1234:87.5"
 /Set/HomeBatteryOffset  W subtracted from /Set/HomeBatteryPower (0-1000, default 0, stored)
 /Set/HomeBatteryFullSoC  At or above this SoC (%) the battery counts as 0 (0-100, one decimal, 0 = off, stored)

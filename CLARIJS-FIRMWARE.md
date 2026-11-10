@@ -45,6 +45,7 @@ for the **Flemish capacity tariff** (*capaciteitstarief*) and for installations 
 | 5 | New capacity mode **Peak** + **configurable margin** | Stable ceiling just under the monthly peak that stays below a home battery's peak-shaving threshold |
 | 6 | **Home battery in watts**: offset, full SoC and conversion done by the SmartEVSE, plus **Battery Guard** with a SoC window | `HomeBatteryCurrent` had to be calculated in deci-amps by the sender; a peak-shaving battery ended up charging the EV |
 | 7 | **Smart mode start current** fixed, setpoint capped at the measured headroom | A standalone charger started at full current and overshot the limit |
+| 8 | **Configurable timeout for the API mains meter** | A Wi-Fi hiccup of the P1 reader longer than 11 s stopped charging with *Communication Error* |
 | – | Bug fix: negative energy difference could register a bogus peak of up to 65 kW | `uint16_t` overflow in `UpdateCapacity()` |
 
 ---
@@ -319,6 +320,21 @@ Two problems in the original regulation, both visible as a start at full current
   more than what is free. Most EVs draw a little less than the setpoint (measured: 9.4 A at 10.0 A);
   that difference may stay on top of the cap when it is at most 1.0 A (an EV that is still ramping
   up gets nothing extra), so the mains still settles at the limit instead of ±100 W below it.
+
+---
+
+## 8. Timeout of the API mains meter
+
+With `MAINS MET = API` the SmartEVSE expects a mains measurement at least every **11 seconds**;
+otherwise it reports *Communication Error* and stops charging. A P1 reader on Wi-Fi (e.g. an ESP8266
+with a weak signal) sometimes delays its messages by 5–20 s: they all arrive afterwards, but too late.
+
+The timeout for the **API** mains meter is now configurable from 11 s (default, as before) to 120 s:
+MQTT `Set/MainsMeterTimeout`, REST `mains_meter_timeout`, Home Assistant number *Mains Meter Timeout*;
+stored and published on `/MainsMeterTimeout`. Modbus, Sensorbox and HomeWizard meters keep 11 s.
+
+During a gap the SmartEVSE keeps regulating on the last measurement, so keep it short: 20–30 s bridges
+a Wi-Fi hiccup without charging blind for long.
 
 ---
 

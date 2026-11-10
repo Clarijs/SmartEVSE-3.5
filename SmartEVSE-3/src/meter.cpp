@@ -421,6 +421,7 @@ void Meter::UpdateEnergies() {
 
 
 // CapacitySafety (default margin) and AssumedVoltage (fallback) are defined in meter.h
+uint8_t MainsApiTimeout = COMM_TIMEOUT;  // seconds without an API mains measurement before CT_NOCOMM (11-120, stored)
 uint16_t CapacityMargin = CapacitySafety;  // margin (W) under the capacity ceiling; settable via MQTT /Set/CapacityMargin or REST
 uint16_t MainsVoltageDV = 0;               // measured mains voltage L1 in 0.1V, e.g. from the API MainsMeter payload (6th value)
 time_t MainsVoltageTime = 0;

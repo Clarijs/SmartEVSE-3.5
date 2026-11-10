@@ -129,6 +129,7 @@ void storeCapacityPeak(void);                                                   
 
 #define CapacitySafety 100                                                      // default margin (W) under the capacity ceiling
 #define AssumedVoltage 230                                                      // used when no (recent) voltage measurement is available
+extern uint8_t MainsApiTimeout;                                                 // seconds without an API mains measurement before CT_NOCOMM
 extern uint16_t CapacityMargin;                                                 // margin (W) under the capacity ceiling, default CapacitySafety
 extern uint16_t MainsVoltageDV;                                                 // last measured mains voltage L1 in 0.1V (0 = never received)
 extern time_t MainsVoltageTime;                                                 // time of that measurement
