@@ -126,7 +126,7 @@ The capacity modes convert power to current with the **measured voltage of L1** 
 | **API** (MQTT / REST) | 6th value of the `MainsMeter` payload (below) | every update |
 | **Modbus kWh meters**: Phoenix C, Finder 7E, Eastron3P, InvEastrn, ABB, SolarEdge, WAGO, Eastron1P, Finder 7M, Sinotimer, Schneider, Chint 3P, C.Gavazzi, Chint 1P, Custom | voltage register L1 from the meter table (`U_REG`); SolarEdge with its SunSpec scaling factor | ±10 s, only while a capacity mode is active |
 | **HomeWizard** (P1 meter, kWh meter) | `active_voltage_l1_v` (P1 / 3-phase) or `active_voltage_v` (1-phase) from `/api/v1/data` | every reading (±2 s) |
-| **Sensorbox** | no voltage measurement | stays 230 V |
+| **Sensorbox 2** | with P1: voltage L1 from the smart meter (register 0x0002, already in every reading); with CTs only: none | every reading (P1); CTs: stays 230 V |
 
 For the Chint 3P (DTSU666) the voltage register in the table was changed from `0x2000` (Uab,
 L1–L2, ±400 V) to `0x2006` (Ua, L1–N); the register was not used before.
@@ -541,7 +541,7 @@ voltage instead of `AssumedVoltage = 230`.
   counts as 0 and Battery Guard has no effect. Send `Set/HomeBatteryPower` every second or every few seconds.
 
 - The **LCD menu** shows Max Sum Mains in whole amps; the web page and MQTT show 0.1 A.
-- The **Sensorbox** has no voltage measurement; with a Sensorbox the capacity modes keep using 230 V.
+- A **Sensorbox 2** only delivers a voltage when it is connected to the P1 port; with CTs only the capacity modes keep using 230 V. The Sensorbox voltage is not tested on real hardware.
 - The Modbus voltage registers come from the existing meter table and were not used before; they are
   tested with the API and HomeWizard path on this installation, not on every Modbus meter. A wrong
   or missing value falls outside 180–270 V and is ignored (230 V is used).

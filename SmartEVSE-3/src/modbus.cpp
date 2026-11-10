@@ -398,7 +398,7 @@ void requestCurrentMeasurement(uint8_t Meter, uint8_t Address) {
 bool requestVoltageMeasurement(uint8_t Meter, uint8_t Address) {
     switch(Meter) {
         case 0:
-        case EM_SENSORBOX:                                                      // no voltage measurement
+        case EM_SENSORBOX:                                                      // voltage (P1) is part of the current measurement response
         case EM_API:                                                            // voltage is the 6th value of the API payload
         case EM_HOMEWIZARD:                                                     // voltage is read over the HomeWizard API
         case EM_UNUSED_SLOT4:

@@ -194,6 +194,9 @@ uint8_t Meter::receiveCurrentMeasurement(ModBus MB) {
             // determine if there is P1 data present, otherwise use CT data
             if (buf[3] & 0x80) offset = 4;                                      // P1 data present
             else offset = 7;                                                    // Use CTs
+            // P1 data: register 0x0002 holds the voltage of L1 (float, V) from the smart meter, used by the
+            // capacity modes instead of a fixed 230V (with CTs only there is no voltage measurement)
+            if (offset == 4 && this == &MainsMeter) SetMainsVoltageDV(decodeMeasurement(buf, 1, -1));
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10

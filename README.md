@@ -41,6 +41,7 @@ the peak while the battery delivered ~0.7 kWh into the car.
 | Connect Home Assistant, MQTT or REST | [**Guide: integration**](docs/clarijs/guide-integration.md) |
 | Fix a problem | [**Troubleshooting**](docs/clarijs/troubleshooting.md) |
 | Install or roll back the firmware | [**Installing**](#installing) |
+| See what changed per release (and what is not released yet) | [**Changelog**](CHANGELOG.md) |
 
 # Installing
 
