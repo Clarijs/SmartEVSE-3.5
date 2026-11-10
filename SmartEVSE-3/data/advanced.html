@@ -33,24 +33,53 @@
 </style>
   <style>
 /* Clarijs look: same style as the dashboard */
-.card{padding:18px 20px;border-radius:var(--radius)}
-.card h2{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg);margin:0 0 10px}
-.section h2{font-size:19px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg)}
-.section{margin-top:30px}
-.btn{border-radius:12px;min-height:40px}
-.modes button{border-radius:14px;min-height:46px}
-input[type=text],input[type=number],input[type=password],input[type=datetime-local],input[type=url],input[type=time],select{border-radius:10px;min-height:38px}
-header{background:var(--bg);border-bottom:1px solid var(--line)}
-.hbar h1{font-size:19px}
-.big{font-size:24px}
+:root{--hero:#18201D;--hero2:#222C28;--herotx:#F3F5F4;--herotx2:#A9B6B1;--mint:#7FE0C3}
+[data-theme="dark"]{--hero:#0A0E0D;--hero2:#18201D}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--hero:#0A0E0D;--hero2:#18201D}}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1120px;padding:20px 16px 64px}
+header{position:static;background:var(--bg);border-bottom:0}
+.hbar{max-width:1120px;padding:20px 16px 0;gap:12px}
+.hbar h1{font-size:20px;gap:12px}
+.hbar h1 .logo{width:44px;height:44px;border-radius:12px;background:var(--hero);padding:9px}
+.themebtn{width:44px;height:44px}
+.card{padding:22px;border-radius:20px;box-shadow:none}
+.card h2{font-size:20px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg);margin:0 0 14px}
+.grid{gap:18px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:18px}
+.row{font-size:15px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-of-type{border-bottom:0}
+.section{margin-top:34px}
+.section h2{font-size:20px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg)}
+.section .ln{display:none}
+.btn{border-radius:14px;min-height:46px;padding:0 20px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
+.btn.sm{min-height:40px;padding:0 14px}
+.modes{gap:12px;margin-bottom:16px}
+.modes button{border-radius:16px;min-height:56px;font-size:16px;background:var(--bg2);border:1px solid var(--line);color:var(--fg);text-transform:capitalize}
+.modes button.on{background:var(--bg2);color:var(--fg);border:3px solid var(--acc);box-shadow:0 6px 20px rgba(0,0,0,.10)}
+fieldset{border-radius:16px;padding:14px 16px;margin-top:14px}
+legend{font-size:13px;font-weight:600;color:var(--fg2)}
+label.f{font-size:13px;gap:6px}
+input[type=text],input[type=number],input[type=password],input[type=datetime-local],input[type=url],input[type=time],select{border-radius:10px;min-height:44px;font-size:16px;padding:0 12px;background:var(--bg2)}
+textarea{border-radius:10px}
+details>summary{font-size:14px!important;font-weight:600;color:var(--accfg,var(--acc))!important;padding:6px 0}
+.switch .track{width:52px;height:30px}
+.switch .knob{width:24px;height:24px;top:2px;left:2px}
+.switch input:checked+.track .knob{transform:translateX(22px)}
 input[type=checkbox]{accent-color:var(--acc);width:18px;height:18px}
+input[type=range]{accent-color:var(--acc)}
+#statuscard{background:var(--hero);color:var(--herotx);border:0;border-radius:24px;padding:28px}
+#statuscard .big{font-size:40px;line-height:1.05}
+#statuscard .sub{color:var(--herotx2);font-size:14px;margin-top:6px}
+#statuscard #st-state{color:var(--mint)}
+.lcdwrap{border-radius:16px}
+.lcdctl .btn{min-height:50px}
 </style>
 </head>
   <body>
     <header>
       <div class="hbar">
         <h1>
-          <img class="logo" src="favicon.ico" alt="" aria-hidden="true">
+          <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="#7FE0C3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
           <span>SmartEVSE<span class="hmeta" id="hd-serial" style="font-weight:400"></span><span class="hmeta" id="hd-meta" style="margin-left:10px">connecting&hellip;</span></span>
         </h1>
         <span class="spacer"></span>
@@ -183,7 +212,7 @@ input[type=checkbox]{accent-color:var(--acc);width:18px;height:18px}
           <div class="fields hidden" id="batt-settings" title="Applied to Set/HomeBatteryPower">
             <label class="f">Offset<input type="number" id="batt-offset" min="0" max="1000" step="1" style="width:80px"> W</label>
             <label class="f">Full at<input type="number" id="batt-fullsoc" min="0" max="100" step="0.1" style="width:80px"> % (0 = off)</label>
-            <label class="f" title="Smart mode: a discharging battery counts as grid import, so it never charges the EV"><input type="checkbox" id="batt-protect"> Battery Guard (Smart) <b id="batt-protect-state"></b></label>
+            <label class="switch infield" title="Smart mode: a discharging battery counts as grid import, so it never charges the EV"><input type="checkbox" id="batt-protect"><span class="track"><span class="knob"></span></span> Battery Guard <b id="batt-protect-state"></b></label>
             <label class="f" title="At or above this SoC the battery may feed the EV (0 = always protect)">Feed EV from<input type="number" id="batt-prot-high" min="0" max="100" step="0.1" style="width:80px"> %</label>
             <label class="f" title="At or below this SoC protect is active again">Guard again at<input type="number" id="batt-prot-low" min="0" max="100" step="0.1" style="width:80px"> %</label>
           </div>
@@ -195,11 +224,11 @@ input[type=checkbox]{accent-color:var(--acc);width:18px;height:18px}
       </div>
       <div class="card" style="margin-top:10px">
         <div class="modes" id="modebtns">
-          <button data-mode="0">OFF</button>
-          <button data-mode="4">PAUSE</button>
-          <button data-mode="1">NORMAL</button>
-          <button data-mode="2" id="mb-solar">SOLAR</button>
-          <button data-mode="3" id="mb-smart">SMART</button>
+          <button data-mode="0">Off</button>
+          <button data-mode="4">Pause</button>
+          <button data-mode="1">Normal</button>
+          <button data-mode="2" id="mb-solar">Solar</button>
+          <button data-mode="3" id="mb-smart">Smart</button>
         </div>
         <fieldset id="fs-solar">
           <legend>Solar settings</legend>
