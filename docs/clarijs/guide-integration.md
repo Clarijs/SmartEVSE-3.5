@@ -15,9 +15,6 @@ With MQTT configured on the SmartEVSE, these entities appear automatically next 
 | Capacity Peak | sensor (W) | monthly peak used by Flanders / Peak |
 | Home Battery Offset | number (W) | offset on `HomeBatteryPower` |
 | Home Battery Full SoC | number (%) | battery counts as 0 at or above |
-| Battery Guard | switch | keep the battery out of the car (Smart) |
-| Battery Guard SoC High / Low | number (%) | SoC window |
-| Battery Guard Active | binary sensor | current state |
 | Mains Meter Timeout | number (s) | timeout of the API mains meter |
 
 Typical automations:
@@ -40,25 +37,20 @@ Set topics (`<prefix>/Set/…`):
 | `CapacityMargin` | W (0–1000) |
 | `HomeBatteryPower` | W, optional `:SoC` |
 | `HomeBatteryOffset` / `HomeBatteryFullSoC` | W / % |
-| `BatteryGuard` | `On` / `Off` |
-| `BatteryGuardSoCHigh` / `BatteryGuardSoCLow` | % |
-| `BatteryGuardStop` | min (0 = off, max 60) |
 | `MainsMeterTimeout` | s (11–120) |
 
 Published: `CapacityPeak`, `MaxSumMains` (one decimal), `CapacityMargin`, `HomeBatteryPower`,
-`HomeBatteryOffset`, `HomeBatteryFullSoC`, `BatteryGuard`, `BatteryGuardSoCHigh`, `BatteryGuardSoCLow`,
-`BatteryGuardActive`, `MainsMeterTimeout`.
+`HomeBatteryOffset`, `HomeBatteryFullSoC`, `MainsMeterTimeout`.
 
 ## REST
 
 `POST /settings?…`: `capacity_peak`, `current_max_sum_mains` (decimal), `capacity_margin`,
-`home_battery_offset`, `home_battery_full_soc`, `battery_guard`, `battery_guard_soc_high`,
-`battery_guard_soc_low`, `mains_meter_timeout`.
+`home_battery_offset`, `home_battery_full_soc`, `mains_meter_timeout`.
 
 `POST /currents?battery_power=1250&battery_soc=87.5` sends the battery power.
 
 `GET /settings` shows among others `capacity_peak_month`, `mains_voltage`, `capacity_voltage`,
 `capacity_margin`, `mains_meter_timeout` and the `home_battery` object (`power`, `soc`, `offset`,
-`full_soc`, `guard`, `guard_soc_high`, `guard_soc_low`, `guard_active`).
+`full_soc`).
 
 Full reference: [CLARIJS-FIRMWARE.md → MQTT and REST reference](../../CLARIJS-FIRMWARE.md#mqtt-and-rest-reference)

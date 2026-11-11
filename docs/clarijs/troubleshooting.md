@@ -26,20 +26,14 @@ messages. Gaps of 5–20 s followed by a burst of messages = Wi-Fi delay at the 
 | Situation | Cause | Fix |
 |---|---|---|
 | At the start of each quarter, with `CAP MODE = Flanders` | Flanders allows more than the peak when the quarter started quiet; the battery shaves it | use **mode Peak** |
-| The battery holds the grid exactly at its threshold while the car charges | charger margin too close to the battery threshold | margin larger than the battery's distance to the peak (e.g. 55 W vs 30 W), **Battery Guard** on |
-| In daytime, grid at 0 W, battery discharging | battery covers house and car (self-consumption) | **Battery Guard** on (works like Solar), or mode Solar |
+| The battery holds the grid exactly at its threshold while the car charges | charger ceiling too close to the battery threshold | battery threshold closer to the peak than the charger ceiling (e.g. battery peak − 10 W, charger margin 0–55 W), measured voltage on |
+| In daytime, grid at 0 W, battery discharging | battery covers house and car (self-consumption) | mode Solar, or block the battery's discharge while charging in Home Assistant (see the [battery guide](guide-home-battery.md)) |
 | One night per year, battery goes to ~0 % | battery SOH calibration (e.g. Huawei): reserve is ignored | nothing to fix; the battery recharges afterwards |
 
 ## The car starts at full current and overshoots
 
 Fixed in this firmware (start current is calculated, setpoint capped at the measured headroom). If it
 still happens, check that an **EV meter** is configured: the headroom cap uses it.
-
-## The current swings (e.g. 6 ↔ 20 A)
-
-Happens when a large battery discharge is counted while the battery value lags behind the mains
-measurement. Send the battery power more often (every second), and keep Battery Guard on so the
-charger settles where the battery stays idle.
 
 ## The mains stays ~100 W under the limit
 

@@ -19,8 +19,11 @@ The charger always stays **below** the battery's threshold. The battery then onl
 peaks in the house (oven, kettle), never to the car.
 
 1. Use **mode Peak** (see the [capacity tariff guide](guide-capacity-tariff.md)), not Flanders.
-2. Set the battery's peak shaving a little **closer** to the peak than the SmartEVSE margin.
-3. Send the battery power to the SmartEVSE and turn on **Battery Guard**.
+2. Send the **measured voltage** with the mains meter (`L1:L2:L3:W:Wh:V`).
+3. Set the battery's peak shaving a little **closer** to the peak than the SmartEVSE ceiling.
+
+Measured (margin 0, battery threshold peak − 10 W, 6.7 kWh night charge): highest 15-minute average
+2706 W at a peak of 2755 W; the battery delivered 7 Wh in total.
 
 ## 2. Send the battery power
 
@@ -38,33 +41,14 @@ The SmartEVSE does the rest itself:
 | `Set/HomeBatteryFullSoC` | at or above this SoC the battery counts as 0 | 99.7 |
 
 Both are also in the Home battery card of the web interface and as Home Assistant numbers. The old
-`Set/HomeBatteryCurrent` (in 0.1 A) still works.
+`Set/HomeBatteryCurrent` (in 0.1 A) still works. As in the original firmware the battery is only used
+in **Solar** mode.
 
-## 3. Battery Guard
+## 3. Block the battery completely (optional)
 
-**Battery Guard** (`Set/BatteryGuard On`) keeps the battery out of the car in **Smart** mode:
-
-- **Peak shaving:** a discharging battery counts as grid import, so the charger lowers the car as if
-  the battery were idle.
-- **Self-consumption in daytime** (battery covers the house, grid at 0 W): the charger works like
-  Solar. It lowers the car by what the battery discharges and raises it only slowly afterwards, so
-  the car runs on solar + grid, not on the battery. Below 6 A the car keeps 6 A.
-- At night, when the battery is below its reserve and idle, nothing changes.
-
-**SoC window (optional):** let a well-charged battery feed the car after all.
-
-| Setting | Effect |
-|---|---|
-| `Set/BatteryGuardSoCHigh` (e.g. 80) | at or above: Battery Guard paused, battery may feed the car |
-| `Set/BatteryGuardSoCLow` (e.g. 50) | at or below: Battery Guard active again |
-
-Between both values the last state is kept. `/BatteryGuardActive` shows the current state.
-
-**Stop when the battery keeps feeding the car (optional):** Battery Guard never lowers the car below
-6 A. A battery in self-consumption mode then still covers those 6 A (~1.4 kW). With
-`Set/BatteryGuardStop` (minutes, e.g. 3) charging stops when the battery keeps discharging with the car
-at 6 A for that long, and restarts once the battery has been idle for a minute (e.g. at its reserve, or
-when the sun covers the house). 0 = never stop.
+The charger does not control the battery. To be sure it never feeds the car, do it in Home
+Assistant: set the battery's maximum discharge power to 0 W while the SmartEVSE state is *Charging*,
+and back afterwards. (An earlier version of this fork had *Battery Guard* for this; it is removed.)
 
 ## 4. Result (measured)
 
@@ -76,8 +60,6 @@ when the sun covers the house). 0 = never stop.
 
 ## 5. Good to know
 
-- **Big loads in the house:** when the house alone goes above the ceiling, Battery Guard lowers the
-  car to 6 A; after `MaxSumMainsTime` charging stops until there is room again.
 - **Battery calibration:** some batteries (e.g. Huawei, about once a year) run an SOH calibration:
   they discharge to ~0 % ignoring the reserve and then charge from the grid. During that night the
   battery may cover the car; nothing is wrong with the charger. See [troubleshooting](troubleshooting.md).

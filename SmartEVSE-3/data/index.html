@@ -147,7 +147,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
   </section>
 
   <section class="card hidden" id="bat">
-    <div class="ch"><h2>Home battery</h2><span class="badge" id="b-guard">Battery Guard off</span></div>
+    <div class="ch"><h2>Home battery</h2></div>
     <div class="batt">
       <div class="cell" aria-hidden="true"><i id="b-fill" style="height:0"></i></div>
       <div style="display:flex;flex-direction:column;gap:6px">
@@ -156,7 +156,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
         <div class="meta" id="b-win">&nbsp;</div>
       </div>
     </div>
-    <p class="ex">Your battery is kept for the house. As soon as it starts to discharge into the car, the charger lowers the current.</p>
+    <p class="ex">The charger uses the battery in Solar mode, to charge only on the real solar surplus.</p>
   </section>
 </div>
 
@@ -196,11 +196,6 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
       <label for="q-ov">Charge current</label>
       <input type="range" id="q-ov" min="0" max="10" step="1" value="0">
       <div class="ch meta"><span id="q-ovv">automatic</span><span id="q-ovmax"></span></div>
-    </div>
-    <div class="f" id="q-gw">
-      <span class="lb" id="q-gl">Battery Guard</span>
-      <button type="button" class="tog" id="q-g" aria-pressed="false" aria-labelledby="q-gl"><span></span></button>
-      <div class="meta">Keep the home battery out of the car (Smart mode)</div>
     </div>
   </div>
 </section>
@@ -275,7 +270,6 @@ function render() {
   else if (paused) { st = "Paused"; dot = "wait"; line = "Charging is paused. Tap Resume to continue."; }
   else if (off && e.access === 0 && e.rfidreader && e.rfidreader !== "Disabled" && e.rfidreader !== "Rmt/OCPP") { st = "Present your RFID card"; dot = "wait"; line = d.car_connected ? "Hold your card in front of the reader to start charging." : "Plug in the car and hold your card in front of the reader."; }
   else if (off) { st = s.starttime ? "Waiting for start time" : "Off"; dot = ""; line = s.starttime ? "Charging starts at the time you set." : "Charging is switched off. Pick a mode below to start."; }
-  else if (hb.guard_stopped) { st = "Paused by Battery Guard"; dot = "wait"; line = "The home battery kept discharging while the car was at " + s.current_min + " A. Charging resumes when the battery has been idle for a minute."; }
   else if (/No Power Available/i.test(e.state)) { st = "Waiting for room"; dot = "wait"; line = (d.mode_id === 2 ? "Not enough solar power yet." : "The house uses almost all of your peak.") + " Charging starts automatically when there is room for " + s.current_min + " A."; }
   else if (charging) { st = "Charging · " + modeName; dot = "ok"; line = ceil > 0 ? "Room left under your ceiling: " + fmtW(room) + "." + (batOn ? (bat < -50 ? " The battery is discharging." : " Battery is not used.") : "") : "Charging at the set current."; }
   else if (d.car_connected) { st = e.state; dot = "wait"; line = "Car connected. Charging starts as soon as the car asks."; }
@@ -316,16 +310,12 @@ function render() {
   // battery
   $("bat").classList.toggle("hidden", !batOn);
   $("lg-bat").classList.toggle("hidden", !batOn);
-  $("q-gw").classList.toggle("hidden", !batOn);
   if (batOn) {
     const soc = typeof hb.soc === "number" ? hb.soc : null;
     $("b-soc").textContent = soc == null ? "—" : Math.round(soc) + " %";
     $("b-fill").style.height = (soc == null ? 0 : Math.max(2, Math.min(100, soc))) + "%";
     $("b-pw").textContent = (bat > 50 ? "Charging · " : bat < -50 ? "Discharging · " : "Idle · ") + fmtW(bat);
-    const g = $("b-guard");
-    g.textContent = !hb.guard ? "Battery Guard off" : hb.guard_stopped ? "Battery Guard: charging stopped" : hb.guard_active ? "Battery Guard active" : "Battery Guard paused";
-    g.classList.toggle("on", !!(hb.guard && hb.guard_active));
-    $("b-win").textContent = [hb.guard && hb.guard_soc_high ? "Guard pauses at " + hb.guard_soc_high + " %, resumes at " + hb.guard_soc_low + " %" : "", hb.guard && hb.guard_stop ? "stops charging after " + hb.guard_stop + " min" + (hb.guard_stop_timer ? " (" + Math.ceil(hb.guard_stop_timer / 60) + " running)" : "") : ""].filter(Boolean).join(" \u00b7 ") || "\u00a0";
+    $("b-win").textContent = hb.full_soc ? "Counts as full from " + hb.full_soc + " %" : "\u00a0";
   }
 
   // modes
@@ -340,7 +330,6 @@ function render() {
     $("q-ovv").textContent = ovA < 1 ? "automatic" : ovA + " A fixed";
     $("q-ovmax").textContent = "max " + s.current_max + " A";
   }
-  $("q-g").setAttribute("aria-pressed", String(!!hb.guard));
 
   // history + chart
   const now = Date.now();
@@ -389,7 +378,6 @@ $("l-ok").onclick = () => {
 };
 $("q-ov").oninput = () => { editing = Date.now() + 4000; const p = +$("q-ov").value; $("q-ovv").textContent = p < 1 ? "automatic" : (d.settings.current_min + p - 1) + " A fixed"; };
 $("q-ov").onchange = () => { const p = +$("q-ov").value; const a = p < 1 ? 0 : d.settings.current_min + p - 1; post({ override_current: a * 10 }); };
-$("q-g").onclick = () => { if (!d) return; const on = !(d.home_battery && d.home_battery.guard); post({ battery_guard: on ? 1 : 0 }); };
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 (function () {
   const STATES = ["auto", "light", "dark"];
