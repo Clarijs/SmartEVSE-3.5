@@ -38,7 +38,7 @@ The SmartEVSE does the rest itself:
 |---|---|---|
 | `Set/HomeBatteryOffset` | W subtracted from the power (sensor offset, own consumption) | 25 |
 
-The offset is also in the Home battery card of the web interface and a Home Assistant number. The old
+The offset is also in the Home battery card of the web interface (All settings) and a Home Assistant number. The old
 `Set/HomeBatteryCurrent` (in 0.1 A) still works. As in the original firmware the battery is only used
 in **Solar** mode.
 

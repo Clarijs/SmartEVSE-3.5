@@ -17,6 +17,7 @@ with the peak read from your digital meter, **without emptying your home battery
 
 | | Feature | In short |
 |---|---|---|
+| 🖥️ | **New web interface** | Visual dashboard as start page (status, capacity bar, chart, big mode buttons); every setting under *All settings*; light and dark. |
 | ⚡ | **Mode Peak** | Stable ceiling = monthly peak − margin. Never above the peak, not even for a few seconds. |
 | 📈 | **Monthly peak from the meter** | The official peak (OBIS 1-0:1.6.0) is synced over MQTT / REST / HomeWizard P1 and survives a reboot. |
 | 🔌 | **Measured voltage** | Power is converted to current with the real mains voltage instead of 230 V. |

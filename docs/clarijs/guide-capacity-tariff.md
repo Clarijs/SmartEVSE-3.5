@@ -104,7 +104,7 @@ Home Assistant (e.g. `throttle: 5s`), which keeps the ESP lighter.
 |---|---|---|
 | `MAINS MET` | **API** | LCD menu |
 | `MODE` | **Smart** | LCD, web, MQTT |
-| `CAP MODE` | **Peak** | web interface → Capacity, or LCD |
+| `CAP MODE` | **Peak** | web interface → All settings → Capacity, or LCD |
 | Margin | **50–100 W** (55 W with a peak-shaving battery, see the battery guide) | `Set/CapacityMargin`, REST `capacity_margin` |
 | `CONTACT 2` | **Always Off** for a single-phase installation | LCD menu |
 | Mains meter timeout | **20–30 s** for a P1 reader on Wi-Fi | `Set/MainsMeterTimeout` |
