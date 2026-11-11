@@ -336,7 +336,8 @@ Valid topics you can publish to are:
 /Set/EVMeter
 /Set/HomeBatteryCurrent
 /Set/MainsMeterTimeout  Seconds without an API mains measurement before Communication Error (11-120, default 11, stored)
-/Set/HomeBatteryPower  Home battery power in W (+ charging / - discharging): "1234"
+/Set/HomeBatteryPower  Home battery power in W (+ charging / - discharging), optionally with SoC in %: "1234" or "1234:48"
+/Set/HomeBatteryReserveSoC  Below this SoC (%) a discharging battery counts as import in Smart mode (0 = off)
 /Set/HomeBatteryOffset  W subtracted from /Set/HomeBatteryPower (0-1000, default 0, stored)
 /Set/RequiredEVCCID
 /Set/ColorOff

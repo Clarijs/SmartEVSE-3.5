@@ -14,12 +14,13 @@ With MQTT configured on the SmartEVSE, these entities appear automatically next 
 |---|---|---|
 | Capacity Peak | sensor (W) | monthly peak used by Flanders / Peak |
 | Home Battery Offset | number (W) | offset on `HomeBatteryPower` |
+| Home Battery Reserve SoC | number (%) | below it the battery may not feed the car (Smart) |
 | Mains Meter Timeout | number (s) | timeout of the API mains meter |
 
 Typical automations:
 
 - **Battery power** every second: `mqtt.publish` to `<prefix>/Set/HomeBatteryPower` with
-  `{{ battery_power }}` (W). No calculation needed.
+  `{{ battery_power }}:{{ battery_soc }}` (W and %). No calculation needed.
 - **Monthly peak** if your P1 reader cannot send it: `mqtt.publish` of the meter's
   "maximum demand running month" (W) to `<prefix>/Set/CapacityPeak`.
 - **Battery peak shaving** (outside the charger): keep the battery threshold at monthly peak − 10 W.
@@ -34,7 +35,8 @@ Set topics (`<prefix>/Set/…`):
 | `CapacityPeak` | monthly peak in W (only raises, ≥ 2500) |
 | `CurrentMaxSumMains` | A, one decimal allowed (`10.4`) |
 | `CapacityMargin` | W (0–1000) |
-| `HomeBatteryPower` | W |
+| `HomeBatteryPower` | W, optional `:SoC` in % |
+| `HomeBatteryReserveSoC` | % (0 = off): below it a discharge counts as import in Smart mode |
 | `HomeBatteryOffset` | W |
 | `MainsMeterTimeout` | s (11–120) |
 
@@ -44,11 +46,11 @@ Published: `CapacityPeak`, `MaxSumMains` (one decimal), `CapacityMargin`, `HomeB
 ## REST
 
 `POST /settings?…`: `capacity_peak`, `current_max_sum_mains` (decimal), `capacity_margin`,
-`home_battery_offset`, `mains_meter_timeout`.
+`home_battery_offset`, `home_battery_reserve_soc`, `mains_meter_timeout`.
 
-`POST /currents?battery_power=1250` sends the battery power.
+`POST /currents?battery_power=1250&battery_soc=48` sends the battery power and SoC.
 
 `GET /settings` shows among others `capacity_peak_month`, `mains_voltage`, `capacity_voltage`,
-`capacity_margin`, `mains_meter_timeout` and the `home_battery` object (`power`, `offset`).
+`capacity_margin`, `mains_meter_timeout` and the `home_battery` object (`power`, `soc`, `offset`, `reserve_soc`, `reserve_active`).
 
 Full reference: [CLARIJS-FIRMWARE.md → MQTT and REST reference](../../CLARIJS-FIRMWARE.md#mqtt-and-rest-reference)

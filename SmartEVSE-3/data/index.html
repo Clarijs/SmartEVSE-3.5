@@ -156,7 +156,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
         <div class="meta" id="b-win">&nbsp;</div>
       </div>
     </div>
-    <p class="ex">The charger uses the battery in Solar mode, to charge only on the real solar surplus.</p>
+    <p class="ex">Solar mode charges only on the real solar surplus. In Smart mode the car may not take the battery&rsquo;s reserve.</p>
   </section>
 </div>
 
@@ -321,7 +321,7 @@ function render() {
     const ar = $("b-arrow");
     ar.setAttribute("d", bat > 50 ? "M28 30v32M18 52l10 10 10-10" : bat < -50 ? "M28 62V30M18 40l10-10 10 10" : "M18 47h20");
     ar.setAttribute("stroke", bat < -50 ? "var(--bat)" : "var(--acc)");
-    $("b-win").textContent = hb.offset ? "Offset " + hb.offset + " W" : "\u00a0";
+    $("b-win").textContent = [typeof hb.soc === "number" ? hb.soc + " %" : "", hb.reserve_soc ? (hb.reserve_active ? "Reserve protected (below " + hb.reserve_soc + " %)" : "Reserve " + hb.reserve_soc + " %") : ""].filter(Boolean).join(" \u00b7 ") || "\u00a0";
   }
 
   // modes

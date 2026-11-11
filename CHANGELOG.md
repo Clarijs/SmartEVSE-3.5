@@ -7,7 +7,14 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
-Nothing yet.
+- **Home battery reserve (Smart mode).** The state of charge is back in `Set/HomeBatteryPower`
+  (`1250:48`, REST `battery_soc`) and there is one new setting, **Reserve SoC** (`Set/HomeBatteryReserveSoC`,
+  REST `home_battery_reserve_soc`, Home Assistant number *Home Battery Reserve SoC*, field *Reserve* on
+  All settings; 0 = off). Below that SoC a discharging battery counts as grid import in Smart mode, so
+  the EV cannot empty the part of the battery kept for peak shaving. Above it nothing changes.
+  Measured why: after a Huawei calibration the battery (35 %) fed the EV at ~2.5 kW down to 12 %,
+  below its 15 % peak-shaving reserve. `/settings` shows `home_battery.soc`, `reserve_soc`,
+  `reserve_active`; MQTT publishes `/HomeBatteryReserveSoC` and `/HomeBatteryReserveActive`.
 
 ## v3.11.3-Clarijs.4 — 11 Nov 2026
 
