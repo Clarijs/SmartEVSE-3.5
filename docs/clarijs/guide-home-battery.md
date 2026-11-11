@@ -38,10 +38,11 @@ The SmartEVSE does the rest itself:
 | Setting | Meaning | Example |
 |---|---|---|
 | `Set/HomeBatteryOffset` | W subtracted from the power (sensor offset, own consumption) | 25 |
+| `Set/HomeBatteryPeakShavingSoC` | below this SoC the battery only does peak shaving; see section 3 | 15 |
 
-The offset is also in the Home battery card of the web interface (All settings) and a Home Assistant number. The old
-`Set/HomeBatteryCurrent` (in 0.1 A) still works. As in the original firmware the battery is only used
-in **Solar** mode.
+Both are also in the Home battery card of the web interface (All settings) and Home Assistant numbers.
+The old `Set/HomeBatteryCurrent` (in 0.1 A) still works. As in the original firmware the battery is used
+in **Solar** mode; in **Smart** mode only below the Peak Shaving SoC.
 
 ## 3. Keep the peak-shaving part of the battery out of the car (Smart mode)
 
@@ -73,9 +74,10 @@ and back afterwards. (An earlier version of this fork had *Battery Guard* for th
 
 ## 5. Good to know
 
-- **Battery calibration:** some batteries (e.g. Huawei, about once a year) run an SOH calibration:
-  they discharge to ~0 % ignoring the reserve and then charge from the grid. During that night the
-  battery may cover the car; nothing is wrong with the charger. See [troubleshooting](troubleshooting.md).
+- **Battery calibration:** some batteries (e.g. Huawei) run an SOH calibration, pack by pack: they
+  discharge to ~0 % ignoring the reserve and then charge from the grid, sometimes up to well above the
+  reserve. Afterwards, in self-consumption mode, the battery may feed the car again until it is back at
+  its peak-shaving level; **Peak Shaving SoC** stops it there. See [troubleshooting](troubleshooting.md).
 - **Grid charging to the reserve:** a battery below its peak-shaving reserve may charge from the grid.
   That is normal load for the charger: the car gets less until the battery is back at its reserve.
 

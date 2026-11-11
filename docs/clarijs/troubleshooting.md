@@ -29,6 +29,7 @@ messages. Gaps of 5–20 s followed by a burst of messages = Wi-Fi delay at the 
 | The battery holds the grid exactly at its threshold while the car charges | charger ceiling too close to the battery threshold | battery threshold closer to the peak than the charger ceiling (e.g. battery peak − 10 W, charger margin 0–55 W), measured voltage on |
 | In daytime, grid at 0 W, battery discharging | battery covers house and car (self-consumption) | mode Solar, or block the battery's discharge while charging in Home Assistant (see the [battery guide](guide-home-battery.md)) |
 | One night per year, battery goes to ~0 % | battery SOH calibration (e.g. Huawei): reserve is ignored | nothing to fix; the battery recharges afterwards |
+| The battery goes below its peak-shaving level (e.g. 15 %) while the car charges | battery still in self-consumption below that level (e.g. after a calibration) | set **Peak Shaving SoC** to that level and send the SoC with the battery power (`W:SoC`) |
 
 ## The car starts at full current and overshoots
 

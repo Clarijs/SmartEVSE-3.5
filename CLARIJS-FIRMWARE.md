@@ -24,7 +24,7 @@ for the **Flemish capacity tariff** (*capaciteitstarief*) and for installations 
 4. [Regulation per switched phase](#3-regulation-per-switched-phase)
 5. [Measured mains voltage](#4-measured-mains-voltage)
 6. [Capacity mode Peak and configurable margin](#5-capacity-mode-peak-and-configurable-margin)
-7. [Home battery power in watts](#6-home-battery-power-in-watts)
+7. [Home battery in watts and Peak Shaving SoC](#6-home-battery-in-watts-and-peak-shaving-soc)
    · [7. Smart mode start current](#7-smart-mode-start-current)
 8. [Benefits with a home battery](#benefits-with-a-home-battery)
 9. [MQTT and REST reference](#mqtt-and-rest-reference)
@@ -44,7 +44,7 @@ for the **Flemish capacity tariff** (*capaciteitstarief*) and for installations 
 | 3 | Max Sum Mains headroom **per switched phase** instead of always ÷3 | On single phase the charger corrected an overshoot 3× too slowly |
 | 4 | **Measured voltage** from every mains meter (API, Modbus, HomeWizard) + **monthly peak from a HomeWizard P1** | The capacity modes used a fixed 230 V |
 | 5 | New capacity mode **Peak** + **configurable margin** | Stable ceiling just under the monthly peak that stays below a home battery's peak-shaving threshold |
-| 6 | **Home battery in watts**: offset and conversion done by the SmartEVSE | `HomeBatteryCurrent` had to be calculated in deci-amps by the sender |
+| 6 | **Home battery in watts**: offset and conversion done by the SmartEVSE; **Peak Shaving SoC** keeps the EV out of the part kept for peak shaving | `HomeBatteryCurrent` had to be calculated in deci-amps by the sender |
 | 7 | **Smart mode start current** fixed, setpoint capped at the measured headroom | A standalone charger started at full current and overshot the limit |
 | 8 | **Configurable timeout for the API mains meter** | A Wi-Fi hiccup of the P1 reader longer than 11 s stopped charging with *Communication Error* |
 | – | Bug fix: negative energy difference could register a bogus peak of up to 65 kW | `uint16_t` overflow in `UpdateCapacity()` |
@@ -220,7 +220,7 @@ Example with a monthly peak of 2755 W, margin 55 W and a home battery shaving at
 
 ---
 
-## 6. Home battery power in watts
+## 6. Home battery in watts and Peak Shaving SoC
 
 The original firmware only accepts the home battery as a current: `Set/HomeBatteryCurrent` in
 **0.1 A**. The sender therefore has to subtract any offset and convert watts to amps with a voltage
@@ -316,9 +316,14 @@ With this firmware, the charger stays **just below** the battery's threshold:
 
 ```
 monthly peak (billed)              2755 W
-battery peak shaving (peak − 30)   2725 W   ← battery only discharges above this
-SmartEVSE limit (peak − margin)    2700 W   ← mode Peak, margin 55 W, measured voltage
+battery peak shaving (peak − 10)   2745 W   ← battery only discharges above this
+SmartEVSE limit (peak − margin)    2700–2755 W   ← mode Peak, margin 0–55 W, measured voltage
 ```
+
+Below its peak-shaving level (e.g. 15 %) the battery should only do peak shaving. Set
+**Peak Shaving SoC** to that level (§6): if the battery still discharges below it (after a
+calibration, or in self-consumption mode), the SmartEVSE counts that discharge as grid import and the
+car does not get it.
 
 | Benefit | How |
 |---|---|
@@ -328,6 +333,7 @@ SmartEVSE limit (peak − margin)    2700 W   ← mode Peak, margin 55 W, measur
 | **Short peaks are corrected 3× faster** (single phase) | Regulation per switched phase (§3); with a meter update every second (P1 via MQTT) an overshoot is gone within a few seconds, so the battery is triggered less often and cycles less |
 | **No overshoot when the voltage rises** | The limit is calculated in watts with the measured voltage (§4). With a fixed limit of 11.7 A, 230 → 236 V would mean 2761 W: above the battery's threshold and even above the peak |
 | **Stable limit** | Mode Peak (§5) has no 15 minute budget, so the charger never goes above the threshold at the start of a quiet period, as Flanders does |
+| **The peak-shaving part stays for peak shaving** | With Peak Shaving SoC (§6) a battery below that level never feeds the car in Smart mode, also not after a calibration or in self-consumption mode |
 | **Follows the month automatically** | The monthly peak is synced from the digital meter and survives a reboot (§1); a new month starts at 2500 W for the charger, and the battery threshold can follow the same value |
 | **More charging power than a safe fixed limit** | 0.1 A steps (§2) and a small margin bring the charger within ±100 W of the peak instead of ±250–450 W |
 

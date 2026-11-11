@@ -23,7 +23,8 @@ with the peak read from your digital meter, **without emptying your home battery
 | 🔌 | **Measured voltage** | Power is converted to current with the real mains voltage instead of 230 V. |
 | 🎚️ | **0.1 A steps + margin** | Max Sum Mains in 0.1 A steps; configurable margin in W. |
 | 🔁 | **Regulation per switched phase** | A single-phase charger corrects an overshoot in one step instead of three. |
-| 🔋 | **Home battery in watts** | Send the battery power in W; offset and conversion to amps are done by the charger (Solar mode). |
+| 🔋 | **Home battery in watts** | Send the battery power in W (+ SoC); offset and conversion to amps are done by the charger. |
+| 🛡️ | **Peak Shaving SoC** | Below this SoC the battery only does peak shaving: in Smart mode the car cannot use that part of the battery. |
 | 🚀 | **Correct start current** | No more start at full current; the setpoint never exceeds the measured headroom. |
 | 📡 | **Configurable API timeout** | A short Wi-Fi hiccup of your P1 reader no longer stops charging. |
 
