@@ -13,6 +13,9 @@ Every change is added to **Unreleased** first; at the next release that section 
   battery's peak-shaving threshold at peak − 10 W the battery stays out of the EV (measured night: 7 Wh
   from the battery during a 6.7 kWh charge). The home battery in watts (`Set/HomeBatteryPower`, offset,
   full SoC; used in Solar mode) stays. The old *Battery Guard* entities can be deleted in Home Assistant.
+- **Home battery: power only.** The state of charge (`Set/HomeBatteryPower 1250:87.5`, REST `battery_soc`)
+  and the setting *Full SoC* (`Set/HomeBatteryFullSoC`, `home_battery_full_soc`, HA number) are removed.
+  Send only the power in W; a payload with `:SoC` still works (the SoC is ignored). The offset stays.
 
 - **Sensorbox 2 on the P1 port:** the voltage of L1 from the smart meter (register 0x0002, already part
   of every reading) is used by the capacity modes instead of 230 V. With CTs only nothing changes.
