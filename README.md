@@ -31,6 +31,26 @@ Measured on a single-phase installation with a 15 kWh home battery: night chargi
 **92–110 W under the monthly peak** with the home battery idle, where it used to stay 255–455 W under
 the peak while the battery delivered ~0.7 kWh into the car.
 
+# New web interface
+
+Open `http://smartevse-<serial>.local/` (or the charger's IP address): the start page is a dashboard
+that shows at a glance what the charger is doing and how much room is left under your monthly peak.
+Everything else is under **All settings**. Light and dark, on a phone or a computer.
+
+<img src="pictures/clarijs/dashboard-light.png" alt="Dashboard: charging status, capacity bar, home battery, 10-minute chart, mode buttons" width="820">
+
+| Dark mode | On a phone |
+|---|---|
+| <img src="pictures/clarijs/dashboard-dark.png" alt="Dashboard in dark mode" width="520"> | <img src="pictures/clarijs/dashboard-phone.png" alt="Dashboard on a phone" width="220"> |
+
+**All settings** (the former main page, every setting and the remote LCD), in the same style:
+
+| Light | Dark |
+|---|---|
+| <img src="pictures/clarijs/all-settings-light.png" alt="All settings page, light" width="400"> | <img src="pictures/clarijs/all-settings-dark.png" alt="All settings page, dark" width="400"> |
+
+*Screenshots with sample data.*
+
 # Pick your path
 
 | You want to… | Start here |
