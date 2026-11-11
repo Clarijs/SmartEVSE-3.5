@@ -29,7 +29,7 @@ Measured (margin 0, battery threshold peak − 10 W, 6.7 kWh night charge): high
 
 ```
 <prefix>/Set/HomeBatteryPower    1250          W, + charging / − discharging
-<prefix>/Set/HomeBatteryPower    1250:48       … with the state of charge in % (needed for the reserve)
+<prefix>/Set/HomeBatteryPower    1250:48       … with the state of charge in % (needed for the peak-shaving SoC)
 ```
 
 Send it every second or every few seconds (after 60 s without an update the battery counts as 0).
@@ -43,19 +43,19 @@ The offset is also in the Home battery card of the web interface (All settings) 
 `Set/HomeBatteryCurrent` (in 0.1 A) still works. As in the original firmware the battery is only used
 in **Solar** mode.
 
-## 3. Protect the battery's reserve (Smart mode)
+## 3. Keep the peak-shaving part of the battery out of the car (Smart mode)
 
-Batteries that do peak shaving keep a reserve (e.g. the last 15 %) for the real peaks. When the
-battery is still discharging below that reserve (e.g. after a calibration, or in self-consumption
-mode), the charger only sees a grid under the peak and gives the car more: the reserve ends up in the
-car. Set **Reserve SoC** to the same value as the battery's reserve:
+Batteries that do peak shaving keep the lowest part (e.g. below 15 %) for peak shaving only. When the
+battery is still discharging below that level (e.g. after a calibration, or in self-consumption
+mode), the charger only sees a grid under the peak and gives the car more: the peak-shaving part ends
+up in the car. Set **Peak Shaving SoC** to the SoC from which your battery only does peak shaving:
 
 | Setting | Effect |
 |---|---|
-| `Set/HomeBatteryReserveSoC` (e.g. 15) | below this SoC a discharging battery counts as grid import in Smart mode; 0 = off |
+| `Set/HomeBatteryPeakShavingSoC` (e.g. 15) | below this SoC a discharging battery counts as grid import in Smart mode; 0 = off |
 
-It needs the SoC in `Set/HomeBatteryPower` (`W:SoC`). Above the reserve nothing changes. Also on All
-settings (Home battery → *Reserve*) and as Home Assistant number *Home Battery Reserve SoC*.
+It needs the SoC in `Set/HomeBatteryPower` (`W:SoC`). Above it nothing changes. Also on All
+settings (Home battery → *Peak shaving below*) and as Home Assistant number *Home Battery Peak Shaving SoC*.
 
 ## 3b. Block the battery completely (optional)
 

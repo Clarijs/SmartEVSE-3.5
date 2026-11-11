@@ -200,7 +200,7 @@ int32_t homeBatteryPower = 0;                                               // l
 bool homeBatteryPowerInput = false;                                         // true when the current is calculated from Set/HomeBatteryPower
 uint16_t HomeBatteryOffset = 0;                                             // W subtracted from the received battery power (stored)
 int16_t homeBatterySoC = -1;                                                // last received state of charge in % (-1 = unknown)
-uint8_t HomeBatteryReserveSoC = 0;                                          // %; below this SoC a discharge counts as import in Smart mode (0 = off, stored)
+uint8_t HomeBatteryPeakShavingSoC = 0;                                          // %; below this SoC the battery only does peak shaving: a discharge counts as import in Smart mode (0 = off, stored)
 // set by EXTERNAL logic through MQTT/REST to indicate cheap tariffs ahead until unix time indicated
 uint8_t ColorOff[3] = {0, 0, 0};          // off
 uint8_t ColorNormal[3] = {0, 255, 0};   // Green
@@ -2922,10 +2922,10 @@ void setHomeBatteryPower(int32_t Watt, int16_t SoC) {
     homeBatteryPowerInput = true;
 }
 
-// Smart mode and the home battery is below HomeBatteryReserveSoC (SoC received within the last 60 s)
-bool isHomeBatteryReserveActive(void) {
-    return Mode == MODE_SMART && HomeBatteryReserveSoC && homeBatteryLastUpdate && homeBatterySoC >= 0
-        && homeBatterySoC < HomeBatteryReserveSoC;
+// Smart mode and the home battery is below HomeBatteryPeakShavingSoC (SoC received within the last 60 s)
+bool isHomeBatteryPeakShavingActive(void) {
+    return Mode == MODE_SMART && HomeBatteryPeakShavingSoC && homeBatteryLastUpdate && homeBatterySoC >= 0
+        && homeBatterySoC < HomeBatteryPeakShavingSoC;
 }
 
 int16_t getBatteryCurrent(void) {
@@ -2937,9 +2937,9 @@ int16_t getBatteryCurrent(void) {
         return 0;
     } else if (Mode == MODE_SOLAR) {                    // Use BatteryCurrent only in Solar Mode
         return homeBatteryCurrent;
-    } else if (isHomeBatteryReserveActive() && homeBatteryCurrent <= -3) {
-        // Smart mode, battery below its reserve (e.g. the part kept for peak shaving): count a discharge as
-        // import, so the EV does not empty the reserve. Charging is not counted (already in the mains measurement).
+    } else if (isHomeBatteryPeakShavingActive() && homeBatteryCurrent <= -3) {
+        // Smart mode, battery below its peak-shaving SoC (the part kept for peak shaving): count a discharge as
+        // import, so the EV cannot use it. Charging is not counted (already in the mains measurement).
         return homeBatteryCurrent;
     } else {
         return 0;                                       // don't touch homeBatteryCurrent, just return 0

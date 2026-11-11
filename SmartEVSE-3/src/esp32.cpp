@@ -229,9 +229,9 @@ extern int32_t homeBatteryPower;
 extern bool homeBatteryPowerInput;
 extern uint16_t HomeBatteryOffset;
 extern int16_t homeBatterySoC;
-extern uint8_t HomeBatteryReserveSoC;
+extern uint8_t HomeBatteryPeakShavingSoC;
 extern void setHomeBatteryPower(int32_t Watt, int16_t SoC);
-extern bool isHomeBatteryReserveActive(void);
+extern bool isHomeBatteryPeakShavingActive(void);
 
 // "W" or "W:SoC" (SoC in %, decimals allowed) -> setHomeBatteryPower()
 static void parseHomeBatteryPower(const String &payload) {
@@ -695,11 +695,11 @@ void mqtt_receive_callback(const String topic, const String payload) {
         if (LoadBl >= 2)
             return;
         parseHomeBatteryPower(payload);                                 // "1250" or "1250:87" (W, optional SoC in %)
-    } else if (topic == MQTTprefix + "/Set/HomeBatteryReserveSoC" && LoadBl < 2) {
+    } else if (topic == MQTTprefix + "/Set/HomeBatteryPeakShavingSoC" && LoadBl < 2) {
         int32_t soc = payload.toInt();
         if (soc >= 0 && soc <= 100) {
-            HomeBatteryReserveSoC = soc;
-            shadowPrefs.markUChar("BatReserve", &HomeBatteryReserveSoC);
+            HomeBatteryPeakShavingSoC = soc;
+            shadowPrefs.markUChar("BatReserve", &HomeBatteryPeakShavingSoC);
         }
     } else if (topic == MQTTprefix + "/Set/HomeBatteryOffset" && LoadBl < 2) {
         int32_t offset = payload.toInt();
@@ -1013,9 +1013,9 @@ void SetupMQTTClient() {
             ", \"mode\":\"box\", \"unit_of_measurement\":\"W\", \"entity_category\":\"config\"", p);
         MQTTclient.announce("Home Battery Offset", "number", opt);
         snprintf(opt, sizeof(opt),
-            ", \"command_topic\":\"%s/Set/HomeBatteryReserveSoC\", \"min\":\"0\", \"max\":\"100\", \"step\":\"1\""
+            ", \"command_topic\":\"%s/Set/HomeBatteryPeakShavingSoC\", \"min\":\"0\", \"max\":\"100\", \"step\":\"1\""
             ", \"mode\":\"box\", \"unit_of_measurement\":\"%%\", \"entity_category\":\"config\"", p);
-        MQTTclient.announce("Home Battery Reserve SoC", "number", opt);
+        MQTTclient.announce("Home Battery Peak Shaving SoC", "number", opt);
         snprintf(opt, sizeof(opt),
             ", \"command_topic\":\"%s/Set/MainsMeterTimeout\", \"min\":\"11\", \"max\":\"120\", \"step\":\"1\""
             ", \"mode\":\"box\", \"unit_of_measurement\":\"s\", \"entity_category\":\"config\"", p);
@@ -1136,8 +1136,8 @@ void mqttPublishData() {
             mqPubI("/HomeBatteryPower", homeBatteryPower, false, 0);
         if (LoadBl < 2) {
             mqPubI("/HomeBatteryOffset", HomeBatteryOffset, true, 0);
-            mqPubI("/HomeBatteryReserveSoC", HomeBatteryReserveSoC, true, 0);
-            mqPubS("/HomeBatteryReserveActive", isHomeBatteryReserveActive() ? "On" : "Off", false, 0);
+            mqPubI("/HomeBatteryPeakShavingSoC", HomeBatteryPeakShavingSoC, true, 0);
+            mqPubS("/HomeBatteryPeakShavingActive", isHomeBatteryPeakShavingActive() ? "On" : "Off", false, 0);
         }
         mqPubS("/OCPP", OcppMode ? "Enabled" : "Disabled", true, 0);
         mqPubS("/OCPPConnection", (OcppWsClient && OcppWsClient->isConnected()) ? "Connected" : "Disconnected", false, 0);
@@ -1373,8 +1373,8 @@ void read_settings() {
         if (MainsApiTimeout < COMM_TIMEOUT || MainsApiTimeout > 120) MainsApiTimeout = COMM_TIMEOUT;
         HomeBatteryOffset = preferences.getUShort("BatOffset", 0);
         if (HomeBatteryOffset > 1000) HomeBatteryOffset = 0;
-        HomeBatteryReserveSoC = preferences.getUChar("BatReserve", 0);
-        if (HomeBatteryReserveSoC > 100) HomeBatteryReserveSoC = 0;
+        HomeBatteryPeakShavingSoC = preferences.getUChar("BatReserve", 0);
+        if (HomeBatteryPeakShavingSoC > 100) HomeBatteryPeakShavingSoC = 0;
         MainsMeter.Peak_Period_Power_Month = preferences.getULong("CapPeakW", CapacityMinimumPower);
         MainsMeter.Peak_Month_Index = preferences.getULong("CapPeakMonth", 0);    // checked against the current month in UpdateCapacity()
         MaxCurrent = preferences.getUShort("MaxCurrent", MAX_CURRENT); 
@@ -1838,8 +1838,8 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         if (homeBatteryPowerInput) doc["home_battery"]["power"] = homeBatteryPower;   // W as received
         if (homeBatteryPowerInput && homeBatterySoC >= 0) doc["home_battery"]["soc"] = homeBatterySoC;   // %
         doc["home_battery"]["offset"] = HomeBatteryOffset;                  // W
-        doc["home_battery"]["reserve_soc"] = HomeBatteryReserveSoC;         // %, 0 = off
-        doc["home_battery"]["reserve_active"] = isHomeBatteryReserveActive() ? 1 : 0;
+        doc["home_battery"]["peak_shaving_soc"] = HomeBatteryPeakShavingSoC;         // %, 0 = off
+        doc["home_battery"]["peak_shaving_active"] = isHomeBatteryPeakShavingActive() ? 1 : 0;
 
         doc["ev_meter"]["description"] = EMConfig[EVMeter.Type].Desc;
         doc["ev_meter"]["address"] = EVMeter.Address;
@@ -1983,13 +1983,13 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
             }
         }
 
-        if(request->hasParam("home_battery_reserve_soc")) {
-            int soc = request->getParam("home_battery_reserve_soc")->value().toInt();
+        if(request->hasParam("home_battery_peak_shaving_soc")) {
+            int soc = request->getParam("home_battery_peak_shaving_soc")->value().toInt();
             if (soc >= 0 && soc <= 100 && LoadBl < 2) {
-                HomeBatteryReserveSoC = soc;
-                shadowPrefs.markUChar("BatReserve", &HomeBatteryReserveSoC);
-                doc["home_battery_reserve_soc"] = HomeBatteryReserveSoC;
-            } else doc["home_battery_reserve_soc"] = "Value not allowed!";
+                HomeBatteryPeakShavingSoC = soc;
+                shadowPrefs.markUChar("BatReserve", &HomeBatteryPeakShavingSoC);
+                doc["home_battery_peak_shaving_soc"] = HomeBatteryPeakShavingSoC;
+            } else doc["home_battery_peak_shaving_soc"] = "Value not allowed!";
         }
 
         if(request->hasParam("capacity_peak")) {

@@ -212,7 +212,7 @@ input[type=range]{accent-color:var(--acc)}
           </div>
           <div class="fields hidden" id="batt-settings" title="Applied to Set/HomeBatteryPower">
             <label class="f">Offset<input type="number" id="batt-offset" min="0" max="1000" step="1" style="width:80px"> W</label>
-            <label class="f" title="Smart mode: below this SoC a discharge counts as grid import, so the EV does not empty the reserve (0 = off)">Reserve<input type="number" id="batt-reserve" min="0" max="100" step="1" style="width:80px"> % <b id="batt-reserve-state"></b></label>
+            <label class="f" title="Below this SoC the battery only does peak shaving: in Smart mode a discharge then counts as grid import, so the EV cannot use it (0 = off)">Peak shaving below<input type="number" id="batt-ps" min="0" max="100" step="1" style="width:80px"> % <b id="batt-ps-state"></b></label>
           </div>
         </div>
       </div>
@@ -556,8 +556,8 @@ function render() {
     if (document.activeElement !== $("batt-offset")) $("batt-offset").value = hb.offset;
     $("batt-soc-row").classList.toggle("hidden", hb.soc === undefined);
     if (hb.soc !== undefined) $("batt-soc").textContent = hb.soc + " %";
-    if (document.activeElement !== $("batt-reserve")) $("batt-reserve").value = hb.reserve_soc;
-    $("batt-reserve-state").textContent = hb.reserve_soc ? (hb.reserve_active ? "(protecting)" : "") : "";
+    if (document.activeElement !== $("batt-ps")) $("batt-ps").value = hb.peak_shaving_soc;
+    $("batt-ps-state").textContent = hb.peak_shaving_soc ? (hb.peak_shaving_active ? "(active)" : "") : "";
   } else $("c-battery").classList.add("hidden");
 
   
@@ -639,7 +639,7 @@ $("sol-start").onchange = (e) => postSettings(new URLSearchParams({ solar_start_
 $("sol-import").onchange = (e) => postSettings(new URLSearchParams({ solar_max_import: e.target.value }));
 $("sol-stop").onchange = (e) => postSettings(new URLSearchParams({ stop_timer: e.target.value }));
 $("batt-offset").onchange = (e) => e.target.value !== "" && postSettings(new URLSearchParams({ home_battery_offset: e.target.value }));
-$("batt-reserve").onchange = (e) => e.target.value !== "" && postSettings(new URLSearchParams({ home_battery_reserve_soc: e.target.value }));
+$("batt-ps").onchange = (e) => e.target.value !== "" && postSettings(new URLSearchParams({ home_battery_peak_shaving_soc: e.target.value }));
 $("chk-lcdlock").onchange = (e) => postSettings(new URLSearchParams({ lcdlock: e.target.checked ? 1 : 0 }));
 $("chk-cablelock").onchange = (e) => postSettings(new URLSearchParams({ cablelock: e.target.checked ? 1 : 0 }));
 $("ln-doc").onclick = (e) => {

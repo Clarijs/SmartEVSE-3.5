@@ -242,22 +242,22 @@ HomeBatteryCurrent (0.1 A) = (power − offset) ÷ measured voltage × 10
 | Setting | MQTT | REST (`POST /settings`) | Default |
 |---|---|---|---|
 | Offset in W, subtracted from the power | `Set/HomeBatteryOffset` | `home_battery_offset` | 0 |
-| Reserve SoC in %: below it a discharge counts as import in **Smart** mode | `Set/HomeBatteryReserveSoC` | `home_battery_reserve_soc` | 0 = off |
+| Peak Shaving SoC in %: below it a discharge counts as import in **Smart** mode | `Set/HomeBatteryPeakShavingSoC` | `home_battery_peak_shaving_soc` | 0 = off |
 
-- Both settings are **stored**, published (`/HomeBatteryOffset`, `/HomeBatteryReserveSoC`) and announced
-  via MQTT discovery as number entities *Home Battery Offset* and *Home Battery Reserve SoC*.
-  `/HomeBatteryReserveActive` (On/Off) shows whether the reserve is protected right now.
-- **Reserve SoC** keeps the EV out of the part of the battery kept for peak shaving: in Smart mode,
-  with the SoC below the reserve, a discharging battery (≥ 0.3 A) counts as grid import, so the EV is
+- Both settings are **stored**, published (`/HomeBatteryOffset`, `/HomeBatteryPeakShavingSoC`) and announced
+  via MQTT discovery as number entities *Home Battery Offset* and *Home Battery Peak Shaving SoC*.
+  `/HomeBatteryPeakShavingActive` (On/Off) shows whether it is active right now.
+- **Peak Shaving SoC** keeps the EV out of the part of the battery kept for peak shaving: in Smart mode,
+  with the SoC below this value, a discharging battery (≥ 0.3 A) counts as grid import, so the EV is
   limited as if the battery were idle. Charging the battery is not counted. It needs the SoC in
   `Set/HomeBatteryPower` and is off when the SoC is unknown or older than 60 s.
 - The **Home battery** card of the web interface shows the received power and SoC and has fields for
-  the offset and the reserve.
+  the offset and the peak-shaving SoC.
 - The voltage is the measured mains voltage of §4 (or 230 V).
 - REST alternative: `POST /currents?battery_power=1250&battery_soc=48`.
-- `GET /settings` → `home_battery`: `current`, `power`, `soc`, `offset`, `reserve_soc`, `reserve_active`.
+- `GET /settings` → `home_battery`: `current`, `power`, `soc`, `offset`, `peak_shaving_soc`, `peak_shaving_active`.
 - `Set/HomeBatteryCurrent` keeps working as before. As in the original firmware, the battery is used in
-  **Solar** mode (and in Smart mode only below the reserve), and is reset to 0 when no update arrives
+  **Solar** mode (and in Smart mode only below the peak-shaving SoC), and is reset to 0 when no update arrives
   for 60 seconds.
 
 Example: power 1000 W, offset 25 W, voltage 232 V → (1000 − 25) ÷ 232 × 10 = **42** (4.2 A).
@@ -382,7 +382,7 @@ Night charging of a Peugeot plug-in hybrid (±10 kWh), monthly peak 2755 W:
 | `capacity_peak` | monthly peak in W (only raises) |
 | `capacity_margin` | margin in W |
 | `home_battery_offset` | battery offset in W |
-| `home_battery_reserve_soc` | reserve SoC in % (0 = off) |
+| `home_battery_peak_shaving_soc` | peak-shaving SoC in % (0 = off) |
 
 `POST /currents?battery_power=…` sends the battery power (W).
 
