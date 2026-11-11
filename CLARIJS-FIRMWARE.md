@@ -486,9 +486,10 @@ voltage instead of `AssumedVoltage = 230`.
 
 - The **LCD menu** shows Max Sum Mains in whole amps; the web page and MQTT show 0.1 A.
 - A **Sensorbox 2** only delivers a voltage when it is connected to the P1 port; with CTs only the capacity modes keep using 230 V. The Sensorbox voltage is not tested on real hardware.
-- The Modbus voltage registers come from the existing meter table and were not used before; they are
-  tested with the API and HomeWizard path on this installation, not on every Modbus meter. A wrong
-  or missing value falls outside 180–270 V and is ignored (230 V is used).
+- The Modbus voltage registers come from the existing meter table and were not used before; only the
+  API path is tested on this installation. The **HomeWizard** voltage and monthly peak are built after the
+  HomeWizard API documentation and are **not tested with a real HomeWizard**. A wrong or missing voltage
+  falls outside 180–270 V and is ignored (230 V is used).
 - An external monthly peak (MQTT, REST, HomeWizard) is ignored during the **first quarter of a
   month** (1st, 00:00–00:15), because the meter can still report the peak of the previous month.
 - **`HomeBatteryCurrent`** is only used in Solar mode (unchanged).

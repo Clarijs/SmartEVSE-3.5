@@ -14,9 +14,31 @@ car charges as fast as possible **without ever raising that peak**.
 | Mains measurement | A reader on the P1 port of the digital meter, sending to the SmartEVSE every second |
 | Network | An MQTT broker (e.g. Mosquitto) that both the P1 reader and the SmartEVSE use |
 
-Any P1 reader that can publish MQTT works. The example below uses an ESP8266 with ESPHome. A
-HomeWizard P1 meter also works without MQTT (`MAINS MET = Homewizrd`): this firmware reads the voltage
-and the official monthly peak from it as well.
+Two ways to get the meter data to the charger:
+
+- **A P1 reader that publishes MQTT** (e.g. an ESP8266 with ESPHome): see [section 3](#3-send-the-measurements-from-the-p1-port).
+- **A HomeWizard P1 meter**: no MQTT and no ESP needed, see [section 3b](#3b-or-a-homewizard-p1-meter).
+
+### Which digital meters?
+
+The capacity tariff applies in **Flanders** (Fluvius). All Fluvius digital electricity meters have a
+P1 port and report the official monthly peak (OBIS `1-0:1.6.0`):
+
+| Meter | Phases |
+|---|---|
+| Sagemcom S211 | 1-phase |
+| Sagemcom T211 | 3-phase (3×230 V and 3×400 V) |
+| Landis+Gyr E360 | 1-phase and 3-phase |
+| Sagemcom XT211 (newer generation) | 1-phase and 3-phase |
+
+- **Open the P1 port first:** it is closed by default. Open it on [mijn.fluvius.be](https://mijn.fluvius.be)
+  (*Producten & diensten → Verbruik → Beheer poorten*). When the port is open the meter display shows
+  a small arrow ▼ above "P1". Use the P1 port (yellow cover), not the S1 port.
+- **Landis+Gyr E360 on 3×230 V** reports 0 W per phase; the charger then uses the total power for the
+  regulation (handled automatically).
+- **Voltage:** if a meter or reader does not report the voltage, the charger keeps using 230 V.
+- **Wallonia and Brussels** have no billed monthly peak (yet): the SmartEVSE works there with the same
+  readers for load balancing and Solar, but mode Peak does not save anything on the bill.
 
 ## 2. How the charger limits the power
 
@@ -98,16 +120,44 @@ interval:
 `get_raw_state()` uses the value of every telegram, also when you throttle the same sensors towards
 Home Assistant (e.g. `throttle: 5s`), which keeps the ESP lighter.
 
+## 3b. Or: a HomeWizard P1 meter
+
+With a [HomeWizard Wi-Fi P1 meter](https://www.homewizard.com/) the charger reads the meter itself
+over the local API (`http://<p1meter>/api/v1/data`, about every 2 seconds). Nothing to program.
+
+| What the charger reads | HomeWizard API field | Used for |
+|---|---|---|
+| Current per phase | `active_current_l1_a` … `l3_a` | the regulation (Smart, Solar, Peak) |
+| Power | `active_power_w` (and per phase) | import/export direction, 3-phase meters |
+| Total import / export | `total_power_import_kwh`, `…_export_kwh` | energy counters |
+| Voltage L1 | `active_voltage_l1_v` | watts → amps in the capacity modes (instead of 230 V) |
+| **Monthly peak** | `montly_power_peak_w` | the official Fluvius peak, as `Set/CapacityPeak` does over MQTT |
+
+`montly` is spelled like that in the HomeWizard API. The monthly peak is only in the data on a
+**Belgian** meter and needs HomeWizard firmware 4.14 or newer; on other meters the field is missing and
+the charger keeps its own value.
+
+**Set up:**
+
+1. Turn on the *Local API* in the HomeWizard Energy app (*Settings → Meters → your P1 meter → Local API*).
+2. On the SmartEVSE LCD: `MAINS MET` = **HomeWizard**, `MAINS HST` = your P1 meter (found automatically
+   via mDNS; *Discover* scans again).
+3. `CAP MODE` = **Peak**, `MODE` = **Smart**, see the settings below (skip the MQTT rows).
+4. Check `GET /settings`: `capacity_peak_month` should show your meter's peak.
+
+> The HomeWizard path is built after the HomeWizard API documentation and has **not been tested with a
+> real HomeWizard yet**. Feedback is welcome (see [troubleshooting](troubleshooting.md)).
+
 ## 4. Settings on the SmartEVSE
 
 | Setting | Value | Where |
 |---|---|---|
-| `MAINS MET` | **API** | LCD menu |
+| `MAINS MET` | **API** (P1 reader over MQTT) or **HomeWizard** | LCD menu |
 | `MODE` | **Smart** | LCD, web, MQTT |
 | `CAP MODE` | **Peak** | web interface → All settings → Capacity, or LCD |
-| Margin | **50–100 W** (55 W with a peak-shaving battery, see the battery guide) | `Set/CapacityMargin`, REST `capacity_margin` |
+| Margin | **0–55 W** with the measured voltage (see the battery guide) | All settings → Capacity, `Set/CapacityMargin`, REST `capacity_margin` |
 | `CONTACT 2` | **Always Off** for a single-phase installation | LCD menu |
-| Mains meter timeout | **20–30 s** for a P1 reader on Wi-Fi | `Set/MainsMeterTimeout` |
+| Mains meter timeout | **20–30 s** for a P1 reader on Wi-Fi (API only) | `Set/MainsMeterTimeout` |
 
 Check `GET /settings`: `capacity_peak_month` should show your meter's peak and `capacity_voltage`
 the measured voltage.
