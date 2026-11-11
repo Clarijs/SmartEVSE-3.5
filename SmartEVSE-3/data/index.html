@@ -58,9 +58,6 @@ p.ex{margin:0;font-size:14px;color:var(--tx2);line-height:1.5}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;background:var(--soft);color:var(--tx2)}
 .badge.on{background:var(--accbg);color:var(--accfg)}
 .batt{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.cell{width:90px;height:140px;border:4px solid var(--tx);border-radius:16px;position:relative;padding:6px;display:flex;flex-direction:column;justify-content:flex-end}
-.cell:before{content:"";position:absolute;top:-12px;left:27px;width:28px;height:8px;background:var(--tx);border-radius:4px 4px 0 0}
-.cell i{display:block;background:var(--acc);border-radius:8px;transition:height .6s}
 .soc{font-size:44px;font-weight:700;line-height:1}
 .chartbox{position:relative}
 svg.chart{width:100%;height:200px;display:block}
@@ -152,7 +149,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
   <section class="card hidden" id="bat">
     <div class="ch"><h2>Home battery</h2></div>
     <div class="batt">
-      <div class="cell" aria-hidden="true"><i id="b-fill" style="height:0"></i></div>
+      <svg width="56" height="88" viewBox="0 0 56 88" aria-hidden="true"><rect x="18" y="2" width="20" height="8" rx="3" fill="var(--tx)"/><rect x="4" y="10" width="48" height="74" rx="10" fill="none" stroke="var(--tx)" stroke-width="4"/><path id="b-arrow" d="M28 30v32M18 52l10 10 10-10" fill="none" stroke="var(--acc)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div style="display:flex;flex-direction:column;gap:6px">
         <div class="soc" id="b-soc">&mdash;</div>
         <div style="font-size:15px;color:var(--tx2)" id="b-pw">&mdash;</div>
@@ -319,11 +316,12 @@ function render() {
   $("bat").classList.toggle("hidden", !batOn);
   $("lg-bat").classList.toggle("hidden", !batOn);
   if (batOn) {
-    const soc = typeof hb.soc === "number" ? hb.soc : null;
-    $("b-soc").textContent = soc == null ? "—" : Math.round(soc) + " %";
-    $("b-fill").style.height = (soc == null ? 0 : Math.max(2, Math.min(100, soc))) + "%";
-    $("b-pw").textContent = (bat > 50 ? "Charging · " : bat < -50 ? "Discharging · " : "Idle · ") + fmtW(bat);
-    $("b-win").textContent = hb.full_soc ? "Counts as full from " + hb.full_soc + " %" : "\u00a0";
+    $("b-soc").textContent = fmtW(bat);
+    $("b-pw").textContent = bat > 50 ? "Charging" : bat < -50 ? "Discharging" : "Idle";
+    const ar = $("b-arrow");
+    ar.setAttribute("d", bat > 50 ? "M28 30v32M18 52l10 10 10-10" : bat < -50 ? "M28 62V30M18 40l10-10 10 10" : "M18 47h20");
+    ar.setAttribute("stroke", bat < -50 ? "var(--bat)" : "var(--acc)");
+    $("b-win").textContent = hb.offset ? "Offset " + hb.offset + " W" : "\u00a0";
   }
 
   // modes

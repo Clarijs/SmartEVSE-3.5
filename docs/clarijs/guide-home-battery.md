@@ -29,7 +29,6 @@ Measured (margin 0, battery threshold peak − 10 W, 6.7 kWh night charge): high
 
 ```
 <prefix>/Set/HomeBatteryPower    1250          W, + charging / − discharging
-<prefix>/Set/HomeBatteryPower    1250:87.5     … with the state of charge in %
 ```
 
 Send it every second or every few seconds (after 60 s without an update the battery counts as 0).
@@ -38,9 +37,8 @@ The SmartEVSE does the rest itself:
 | Setting | Meaning | Example |
 |---|---|---|
 | `Set/HomeBatteryOffset` | W subtracted from the power (sensor offset, own consumption) | 25 |
-| `Set/HomeBatteryFullSoC` | at or above this SoC the battery counts as 0 | 99.7 |
 
-Both are also in the Home battery card of the web interface and as Home Assistant numbers. The old
+The offset is also in the Home battery card of the web interface and a Home Assistant number. The old
 `Set/HomeBatteryCurrent` (in 0.1 A) still works. As in the original firmware the battery is only used
 in **Solar** mode.
 
