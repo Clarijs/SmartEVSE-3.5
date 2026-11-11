@@ -62,7 +62,10 @@ p.ex{margin:0;font-size:14px;color:var(--tx2);line-height:1.5}
 .cell:before{content:"";position:absolute;top:-12px;left:27px;width:28px;height:8px;background:var(--tx);border-radius:4px 4px 0 0}
 .cell i{display:block;background:var(--acc);border-radius:8px;transition:height .6s}
 .soc{font-size:44px;font-weight:700;line-height:1}
+.chartbox{position:relative}
 svg.chart{width:100%;height:200px;display:block}
+.yl{position:absolute;left:0;transform:translateY(-50%);font-size:12px;color:var(--tx3);background:var(--card);padding:0 4px 0 0;line-height:1.2;pointer-events:none}
+.yl.cl{left:auto;right:0;padding:0 0 0 4px;color:var(--warn);font-weight:600}
 .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
 .mode{text-align:left;display:flex;flex-direction:column;gap:10px;padding:18px;min-height:130px;border-radius:20px;background:var(--card);color:var(--tx);border:1px solid var(--line);cursor:pointer}
 .mode[aria-pressed=true]{border:3px solid var(--acc);box-shadow:0 6px 20px rgba(0,0,0,.10)}
@@ -169,6 +172,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
       <span><i class="sw" style="border-top:2px dashed var(--warn);width:14px;height:0;border-radius:0"></i>Ceiling</span>
     </div>
   </div>
+  <div class="chartbox">
   <svg class="chart" id="chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Grid, car and battery power over the last ten minutes">
     <line id="k-ceil" x1="0" x2="600" y1="-10" y2="-10" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
     <line id="k-zero" x1="0" x2="600" y1="170" y2="170" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
@@ -176,7 +180,11 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
     <polyline id="k-car" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
     <polyline id="k-bat" fill="none" stroke="var(--bat)" stroke-width="2" vector-effect="non-scaling-stroke"/>
   </svg>
-  <div class="ch meta"><span>&minus;10 min</span><span id="k-scale"></span><span>now</span></div>
+    <span class="yl" id="k-top" style="top:5.6%"></span>
+    <span class="yl" id="k-0"></span>
+    <span class="yl cl" id="k-cl"></span>
+  </div>
+  <div class="ch meta"><span>&minus;10 min</span><span>&minus;5 min</span><span>now</span></div>
 </section>
 
 <section style="display:flex;flex-direction:column;gap:12px">
@@ -343,7 +351,7 @@ function render() {
 function drawChart(now) {
   let hi = 1000, lo = 0;
   hist.forEach((p) => { hi = Math.max(hi, p[1], p[2], p[4]); lo = Math.min(lo, p[1], p[3]); });
-  hi *= 1.08; lo = lo < 0 ? lo * 1.1 : 0;
+  hi = Math.ceil(hi * 1.05 / 500) * 500; lo = lo < 0 ? -Math.ceil(-lo * 1.1 / 500) * 500 : 0;
   const y = (w) => (170 - (w - lo) / (hi - lo) * 160).toFixed(1);
   const x = (t) => (600 - (now - t) / HIST_MS * 600).toFixed(1);
   const pts = (i) => hist.map((p) => x(p[0]) + "," + y(p[i])).join(" ");
@@ -353,7 +361,11 @@ function drawChart(now) {
   const c = hist.length ? hist[hist.length - 1][4] : 0;
   $("k-ceil").setAttribute("y1", c > 0 ? y(c) : -10); $("k-ceil").setAttribute("y2", c > 0 ? y(c) : -10);
   $("k-zero").setAttribute("y1", y(0)); $("k-zero").setAttribute("y2", y(0));
-  $("k-scale").textContent = "top " + fmtW(hi);
+  const pctY = (w) => (y(w) / 180 * 100).toFixed(1) + "%";
+  $("k-top").textContent = fmtW(hi);
+  $("k-0").textContent = "0 W"; $("k-0").style.top = pctY(0);
+  const cl = $("k-cl");
+  if (c > 0) { cl.textContent = "Ceiling " + fmtW(c); cl.style.top = pctY(c); cl.classList.remove("hidden"); } else cl.classList.add("hidden");
 }
 
 function poll() {
