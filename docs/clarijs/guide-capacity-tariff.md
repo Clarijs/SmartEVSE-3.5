@@ -140,7 +140,7 @@ the charger keeps its own value.
 **Set up:**
 
 1. Turn on the *Local API* in the HomeWizard Energy app (*Settings → Meters → your P1 meter → Local API*).
-2. On the SmartEVSE LCD: `MAINS MET` = **HomeWizard**, `MAINS HST` = your P1 meter (found automatically
+2. On the SmartEVSE LCD: `MAINS MET` = **Homewizrd**, `MAINS HST` = your P1 meter (found automatically
    via mDNS; *Discover* scans again).
 3. `CAP MODE` = **Peak**, `MODE` = **Smart**, see the settings below (skip the MQTT rows).
 4. Check `GET /settings`: `capacity_peak_month` should show your meter's peak.
@@ -152,7 +152,7 @@ the charger keeps its own value.
 
 | Setting | Value | Where |
 |---|---|---|
-| `MAINS MET` | **API** (P1 reader over MQTT) or **HomeWizard** | LCD menu |
+| `MAINS MET` | **API** (P1 reader over MQTT) or **Homewizrd** (HomeWizard P1) | LCD menu |
 | `MODE` | **Smart** | LCD, web, MQTT |
 | `CAP MODE` | **Peak** | web interface → All settings → Capacity, or LCD |
 | Margin | **0–55 W** with the measured voltage (see the battery guide) | All settings → Capacity, `Set/CapacityMargin`, REST `capacity_margin` |
