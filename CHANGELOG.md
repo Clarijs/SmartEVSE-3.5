@@ -7,6 +7,10 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
+Nothing yet.
+
+## v3.11.3-Clarijs.5 — 11 Nov 2026
+
 - **Home battery: peak-shaving SoC (Smart mode).** The state of charge is back in `Set/HomeBatteryPower`
   (`1250:48`, REST `battery_soc`) and there is one new setting, **Peak Shaving SoC** (`Set/HomeBatteryPeakShavingSoC`,
   REST `home_battery_peak_shaving_soc`, Home Assistant number *Home Battery Peak Shaving SoC*, field *Peak shaving below* on
@@ -15,6 +19,7 @@ Every change is added to **Unreleased** first; at the next release that section 
   Measured why: after a Huawei calibration the battery (35 %) fed the EV at ~2.5 kW down to 12 %,
   below the 15 % it keeps for peak shaving. Named *Peak Shaving SoC* (first build: *Reserve SoC*; the stored value is kept). `/settings` shows `home_battery.soc`, `peak_shaving_soc`,
   `peak_shaving_active`; MQTT publishes `/HomeBatteryPeakShavingSoC` and `/HomeBatteryPeakShavingActive`.
+- All settings: the home battery fields are aligned (label, field, unit).
 
 ## v3.11.3-Clarijs.4 — 11 Nov 2026
 
