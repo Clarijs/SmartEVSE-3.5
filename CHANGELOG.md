@@ -7,6 +7,13 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
+- **Removed: Battery Guard.** `Set/BatteryGuard`, `BatteryGuardSoCHigh/Low` (MQTT, REST `battery_guard…`,
+  Home Assistant entities *Battery Guard …*, the web fields) are gone; in Smart mode the home battery is
+  ignored again, as in the original firmware. Not needed: with mode Peak, the measured voltage and the
+  battery's peak-shaving threshold at peak − 10 W the battery stays out of the EV (measured night: 7 Wh
+  from the battery during a 6.7 kWh charge). The home battery in watts (`Set/HomeBatteryPower`, offset,
+  full SoC; used in Solar mode) stays. The old *Battery Guard* entities can be deleted in Home Assistant.
+
 - **Sensorbox 2 on the P1 port:** the voltage of L1 from the smart meter (register 0x0002, already part
   of every reading) is used by the capacity modes instead of 230 V. With CTs only nothing changes.
   *Not tested on real hardware.*

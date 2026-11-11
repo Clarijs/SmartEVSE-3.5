@@ -23,7 +23,6 @@ with the peak read from your digital meter, **without emptying your home battery
 | 🎚️ | **0.1 A steps + margin** | Max Sum Mains in 0.1 A steps; configurable margin in W. |
 | 🔁 | **Regulation per switched phase** | A single-phase charger corrects an overshoot in one step instead of three. |
 | 🔋 | **Home battery in watts** | Send the battery power (+ SoC); offset, "full" and conversion are done by the charger. |
-| 🛡️ | **Battery Guard** | In Smart mode the home battery does not charge the EV; works like Solar while it discharges; optional SoC window. |
 | 🚀 | **Correct start current** | No more start at full current; the setpoint never exceeds the measured headroom. |
 | 📡 | **Configurable API timeout** | A short Wi-Fi hiccup of your P1 reader no longer stops charging. |
 
@@ -69,7 +68,7 @@ Changes are offered to dingo35 as small pull requests, one subject each:
 | Measured mains voltage | [#437](https://github.com/dingo35/SmartEVSE-3.5/pull/437) | open |
 | Mode Peak + margin | [#430](https://github.com/dingo35/SmartEVSE-3.5/pull/430) | draft, after #425/#432 |
 | Home battery in watts | [#434](https://github.com/dingo35/SmartEVSE-3.5/pull/434) | open |
-| Battery Guard | [#439](https://github.com/dingo35/SmartEVSE-3.5/pull/439) | open (replaces closed #435) |
+| ~~Battery Guard~~ | [#439](https://github.com/dingo35/SmartEVSE-3.5/pull/439) | withdrawn (removed from this fork) |
 | Flanders: budget over ≥ 2 min | [#436](https://github.com/dingo35/SmartEVSE-3.5/pull/436) | draft |
 
 Names of MQTT topics can still change during review (e.g. `Set/CapacityPeak` in this firmware is

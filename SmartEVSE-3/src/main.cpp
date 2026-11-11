@@ -201,22 +201,6 @@ int16_t homeBatterySoC = -1;                                                // l
 bool homeBatteryPowerInput = false;                                         // true when the current is calculated from Set/HomeBatteryPower
 uint16_t HomeBatteryOffset = 0;                                             // W subtracted from the received battery power (stored)
 uint16_t HomeBatteryFullSoC = 0;                                            // 0.1%; at or above this SoC the battery counts as 0 (0 = off, stored)
-uint8_t HomeBatteryProtect = 0;                                             // 1: in Smart mode a discharging battery counts as mains import (stored)
-uint16_t HomeBatteryProtectSoCHigh = 0;                                     // 0.1%; at or above: battery may discharge into the EV (protect paused), 0 = off (stored)
-uint16_t HomeBatteryProtectSoCLow = 0;                                      // 0.1%; at or below: protect active again (stored)
-bool homeBatteryProtectPaused = false;                                      // hysteresis state between SoCLow and SoCHigh
-
-// Is home battery protect active now? SoC hysteresis: paused at/above SoCHigh, active again at/below SoCLow
-bool isHomeBatteryProtectActive(void) {
-    if (!HomeBatteryProtect) return false;
-    if (!HomeBatteryProtectSoCHigh || homeBatterySoC < 0) {                 // no SoC window or SoC unknown: always protect
-        homeBatteryProtectPaused = false;
-        return true;
-    }
-    if (homeBatterySoC >= (int16_t)HomeBatteryProtectSoCHigh) homeBatteryProtectPaused = true;
-    else if (homeBatterySoC <= (int16_t)HomeBatteryProtectSoCLow) homeBatteryProtectPaused = false;
-    return !homeBatteryProtectPaused;
-}
 // set by EXTERNAL logic through MQTT/REST to indicate cheap tariffs ahead until unix time indicated
 uint8_t ColorOff[3] = {0, 0, 0};          // off
 uint8_t ColorNormal[3] = {0, 255, 0};   // Green
@@ -1014,30 +998,15 @@ void CalcBalancedCurrent(char mod) {
             }
         }
 
-        // Home battery protect, solar-like: in Smart mode the EV may not take power from a discharging home battery.
-        // While protect is active and the battery discharges, the EV current is lowered by the discharge (like Solar
-        // lowers it on import), and for 10 minutes after the last discharge it is only raised slowly (0.1A per update),
-        // so it settles where the battery stays idle. Below MinCurrent the EV keeps MinCurrent.
-        static time_t ProtectSlowUntil = 0;
-        bool ProtectActive = (Mode == MODE_SMART && homeBatteryLastUpdate && isHomeBatteryProtectActive());
-        bool ProtectDischarging = ProtectActive && homeBatteryCurrent <= -3;
-        if (ProtectDischarging) ProtectSlowUntil = time(NULL) + 600;
-        bool ProtectSlow = ProtectActive && time(NULL) < ProtectSlowUntil;
-
         if (!mod) {                                                             // no new EVSE's charging
                                                                                 // For Smart mode, no new EVSE asking for current
             if (phasesLastUpdateFlag) {                                         // only increase or decrease current if measurements are updated
                 _LOG_V("phaseLastUpdate=%u.\n", phasesLastUpdate);
                 if (Idifference > 0) {
-                    if (Mode == MODE_SMART) IsetBalanced += ProtectSlow ? min(Idifference / 4, 1) : (Idifference / 4);  // increase with 1/4th of difference (slowly increase current)
+                    if (Mode == MODE_SMART) IsetBalanced += (Idifference / 4);  // increase with 1/4th of difference (slowly increase current)
                 }                                                               // in Solar mode we compute increase of current later on!
                 else
                     IsetBalanced += Idifference;                                // last PWM setting + difference (immediately decrease current) (Smart and Solar mode)
-                if (ProtectDischarging && ActiveEVSE > 0) {
-                    // battery data arrives every few seconds, so take half of the discharge per mains update
-                    int Dec = (-homeBatteryCurrent) / (2 * SumMainsPhases());
-                    IsetBalanced -= (Dec < 1) ? 1 : Dec;
-                }
             }
 
             if (IsetBalanced < 0) IsetBalanced = 0;
@@ -2961,11 +2930,6 @@ int16_t getBatteryCurrent(void) {
         homeBatteryPowerInput = false;
         return 0;
     } else if (Mode == MODE_SOLAR) {                    // Use BatteryCurrent only in Solar Mode
-        return homeBatteryCurrent;
-    } else if (Mode == MODE_SMART && homeBatteryCurrent <= -3 && isHomeBatteryProtectActive()) {
-        // Home battery protect: a discharging battery (e.g. peak shaving) hides the real load from the mains meter.
-        // Count the discharge as import, so the EV is limited as if the battery were idle and never charges the EV.
-        // Charging the battery is not counted (that is already in the mains measurement). Deadband 0.3A.
         return homeBatteryCurrent;
     } else {
         return 0;                                       // don't touch homeBatteryCurrent, just return 0
