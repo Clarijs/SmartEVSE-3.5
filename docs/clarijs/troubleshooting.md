@@ -31,6 +31,13 @@ messages. Gaps of 5–20 s followed by a burst of messages = Wi-Fi delay at the 
 | One night per year, battery goes to ~0 % | battery SOH calibration (e.g. Huawei): reserve is ignored | nothing to fix; the battery recharges afterwards |
 | The battery goes below its peak-shaving level (e.g. 15 %) while the car charges | battery still in self-consumption below that level (e.g. after a calibration) | set **Peak Shaving SoC** to that level and send the SoC with the battery power (`W:SoC`) |
 
+## New monthly peak while charging (no home battery)
+
+**Cause:** a big load in the house (oven, hob) for several minutes leaves less than 6 A for the car.
+The charger keeps the car at 6 A for `CAP STOP` minutes before it stops; during that time the grid is
+above the peak. **Fix:** set `CAP STOP` to Off (0) or 1 minute, see
+[capacity tariff guide, section 6](guide-capacity-tariff.md#6-without-a-home-battery-set-cap-stop-short).
+
 ## The car starts at full current and overshoots
 
 Fixed in this firmware (start current is calculated, setpoint capped at the measured headroom). If it

@@ -58,6 +58,7 @@ Everything else is under **All settings**. Light and dark, on a phone or a compu
 |---|---|
 | Understand every change in detail | [**Firmware changes**](CLARIJS-FIRMWARE.md) |
 | Set up charging under the Flemish capacity tariff | [**Guide: capacity tariff (Flanders)**](docs/clarijs/guide-capacity-tariff.md) |
+| Charge under the capacity tariff **without a home battery** | [**Guide: capacity tariff → CAP STOP**](docs/clarijs/guide-capacity-tariff.md#6-without-a-home-battery-set-cap-stop-short) |
 | Combine the charger with a home battery | [**Guide: home battery**](docs/clarijs/guide-home-battery.md) |
 | Connect Home Assistant, MQTT or REST | [**Guide: integration**](docs/clarijs/guide-integration.md) |
 | Fix a problem | [**Troubleshooting**](docs/clarijs/troubleshooting.md) |

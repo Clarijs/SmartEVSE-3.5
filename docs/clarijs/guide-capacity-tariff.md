@@ -158,6 +158,7 @@ the charger keeps its own value.
 | Margin | **0–55 W** with the measured voltage (see the battery guide) | All settings → Capacity, `Set/CapacityMargin`, REST `capacity_margin` |
 | `CONTACT 2` | **Always Off** for a single-phase installation | LCD menu |
 | Mains meter timeout | **20–30 s** for a P1 reader on Wi-Fi (API only) | `Set/MainsMeterTimeout` |
+| `CAP STOP` | **without a home battery: Off (0) or 1 min**; with a peak-shaving battery: up to 5 min | LCD menu, All settings → Capacity |
 
 Check `GET /settings`: `capacity_peak_month` should show your meter's peak and `capacity_voltage`
 the measured voltage.
@@ -169,6 +170,29 @@ the measured voltage.
 - The car starts at the current that is actually free, not at full current.
 - Night charging settles about 50–110 W under the peak. Short peaks in the house (kettle) are
   corrected within a second or two.
+
+## 6. Without a home battery: set CAP STOP short
+
+`CAP STOP` (Max Sum Mains Time) is how long the charger keeps the car at its minimum current (6 A)
+when even 6 A does not fit under the ceiling, before it stops charging. During that time the grid is
+**above** your peak. With a peak-shaving home battery the battery covers those minutes; **without a
+battery they count fully in the 15-minute average**.
+
+Example, single phase, monthly peak 3000 W, margin 0. The car charges at 2500 W with 450 W in the
+house. Then the house goes to 2500 W for 6 minutes (oven + hob):
+
+| | What happens | 15-minute average |
+|---|---|---|
+| **CAP STOP = 5 min** | car to 6 A (~1380 W), grid ~3880 W for 5 minutes, then stop | **~3230 W: new peak** |
+| **CAP STOP = 1 min** | car at 6 A for 1 minute, then stop | ~2860 W |
+| **CAP STOP = Off (0)** | stops within a few seconds | ~2770 W |
+
+Charging restarts by itself (after about a minute) as soon as there is room for 6 A again.
+
+| | Advice |
+|---|---|
+| **No home battery** | `CAP STOP` **Off (0)** (always safe, stops at every peak) or **1 min** (a kettle of 1–2 minutes does not stop charging; a long peak stops it in time). Not more than 2 minutes. |
+| **Home battery with peak shaving** | up to 5 minutes is fine: the battery shaves the minutes at 6 A. Keep the [Peak Shaving SoC](guide-home-battery.md#3-keep-the-peak-shaving-part-of-the-battery-out-of-the-car-smart-mode) set so the battery keeps enough for this. |
 
 Next: [combine it with a home battery](guide-home-battery.md) ·
 [problems?](troubleshooting.md)
