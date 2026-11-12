@@ -7,10 +7,7 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
-- **CAP STOP in every capacity mode.** The LCD menu showed `CAP STOP` (Max Sum Mains Time) only in
-  `CAP MODE = Fixed`, although the timer also applies to Interval, Flanders and Peak. It is now shown for
-  every capacity mode, and there is a *CAP STOP (min)* field on the Capacity page of the web interface.
-  Without a home battery set it to 0 or 1 minute (see the capacity tariff guide, section 6).
+Nothing yet.
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 
@@ -23,6 +20,10 @@ Every change is added to **Unreleased** first; at the next release that section 
   below the 15 % it keeps for peak shaving. Named *Peak Shaving SoC* (first build: *Reserve SoC*; the stored value is kept). `/settings` shows `home_battery.soc`, `peak_shaving_soc`,
   `peak_shaving_active`; MQTT publishes `/HomeBatteryPeakShavingSoC` and `/HomeBatteryPeakShavingActive`.
 - All settings: the home battery fields are aligned (label, field, unit).
+- **CAP STOP in every capacity mode.** The LCD menu showed `CAP STOP` (Max Sum Mains Time) only in
+  `CAP MODE = Fixed`, although the timer also applies to Interval, Flanders and Peak. It is now shown for
+  every capacity mode, and there is a *CAP STOP (min)* field on the Capacity page of the web interface.
+  Without a home battery set it to 0 or 1 minute (see the capacity tariff guide, section 6).
 
 ## v3.11.3-Clarijs.4 — 11 Nov 2026
 
