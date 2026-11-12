@@ -7,7 +7,10 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
-Nothing yet.
+- **CAP STOP in every capacity mode.** The LCD menu showed `CAP STOP` (Max Sum Mains Time) only in
+  `CAP MODE = Fixed`, although the timer also applies to Interval, Flanders and Peak. It is now shown for
+  every capacity mode, and there is a *CAP STOP (min)* field on the Capacity page of the web interface.
+  Without a home battery set it to 0 or 1 minute (see the capacity tariff guide, section 6).
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 

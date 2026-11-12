@@ -1265,6 +1265,8 @@ uint8_t getMenuItems (void) {
             MenuItems[m++] = MENU_SUMMAINS;
             if (getItemValue(MENU_SUMMAINS) != 0)
                 MenuItems[m++] = MENU_SUMMAINSTIME;
+        } else if (getItemValue(MENU_CAPACITY_MODE) != CAP_DISABLED) {
+            MenuItems[m++] = MENU_SUMMAINSTIME;                                 // CAP STOP also applies to Interval, Flanders and Peak
         }
     }
     MenuItems[m++] = MENU_LCDPIN;
