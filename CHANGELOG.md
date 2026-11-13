@@ -7,7 +7,10 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
-Nothing yet.
+- **MQTT: publish only what changed.** The status topics are still checked every 10 seconds, but a topic
+  is only sent again when its value changed, plus once a minute as a heartbeat. After a (re)connect
+  everything is sent once. Far fewer messages for the broker and Home Assistant; values that change
+  still arrive just as fast. Idea from [basmeerman/SmartEVSE-3.5](https://github.com/basmeerman/SmartEVSE-3.5).
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 

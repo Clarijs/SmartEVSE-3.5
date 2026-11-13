@@ -43,6 +43,9 @@ Set topics (`<prefix>/Set/…`):
 Published: `CapacityPeak`, `MaxSumMains` (one decimal), `CapacityMargin`, `HomeBatteryPower`,
 `HomeBatteryOffset`, `MainsMeterTimeout`.
 
+Status topics are only sent when their value changes, and at least once a minute (heartbeat);
+after a reconnect to the broker everything is sent once.
+
 ## REST
 
 `POST /settings?…`: `capacity_peak`, `current_max_sum_mains` (decimal), `capacity_margin`,

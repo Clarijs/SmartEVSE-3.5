@@ -858,7 +858,42 @@ void printRFID(char *buf) {
 }
 
 
+// Change-only publishing: mqttPublishData() runs every 10 s (and sooner after a
+// change), but a topic is only sent again when its payload changed, or as a
+// heartbeat once every MQTT_HEARTBEAT_S. Topic and payload are kept as 32-bit
+// hashes in a fixed table, so no heap is used.
+#define MQTT_CACHE_SLOTS  96
+#define MQTT_HEARTBEAT_S  60
+struct MqttCacheEntry { uint32_t topic; uint32_t value; uint32_t lastPub; };
+static MqttCacheEntry mqttCache[MQTT_CACHE_SLOTS];
+static uint8_t mqttCacheUsed = 0;
+static bool mqttForceAll = true;
+
+static uint32_t mqttHash(const char *s, size_t len, uint32_t h = 2166136261u) {
+    for (size_t i = 0; i < len; i++) { h ^= (uint8_t)s[i]; h *= 16777619u; }   // FNV-1a
+    return h;
+}
+
+// true when this topic/payload has to be published now
+static bool mqttShouldPublish(const char *suffix, const char *value, size_t vlen, uint32_t now) {
+    uint32_t t = mqttHash(suffix, strlen(suffix));
+    uint32_t v = mqttHash(value, vlen);
+    MqttCacheEntry *e = nullptr;
+    for (uint8_t i = 0; i < mqttCacheUsed; i++) if (mqttCache[i].topic == t) { e = &mqttCache[i]; break; }
+    if (!e) {
+        if (mqttCacheUsed >= MQTT_CACHE_SLOTS) return true;           // table full: never suppress
+        e = &mqttCache[mqttCacheUsed++];
+        e->topic = t;
+    } else if (!mqttForceAll && e->value == v && (uint32_t)(now - e->lastPub) < MQTT_HEARTBEAT_S) {
+        return false;
+    }
+    e->value = v;
+    e->lastPub = now;
+    return true;
+}
+
 void SetupMQTTClient() {
+    mqttForceAll = true;        // (re)connected: send every topic on the next cycle
     // Set up subscriptions
     MQTTclient.subscribe(MQTTprefix + "/Set/#",1);
     MQTTclient.publish(MQTTprefix+"/connected", "online", true, 0);
@@ -1035,7 +1070,9 @@ void mqttPublishData() {
     // Local helpers: build the prefixed topic on the stack so we don't burn
     // ~50 String reallocations every MQTT publish cycle. Topic length is
     // bounded by MQTTprefix (small) + a literal suffix; 96 bytes is plenty.
-    auto mqPub  = [](const char *suffix, const char *value, size_t vlen, bool retain, int qos) {
+    const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000000);
+    auto mqPub  = [now](const char *suffix, const char *value, size_t vlen, bool retain, int qos) {
+        if (!mqttShouldPublish(suffix, value, vlen, now)) return;
         char t[96];
         int n = snprintf(t, sizeof(t), "%s%s", MQTTprefix.c_str(), suffix);
         if (n > 0 && n < (int)sizeof(t)) MQTTclient.publish(t, value, vlen, retain, qos);
@@ -1163,6 +1200,7 @@ void mqttPublishData() {
         mqPubI("/LoadBl", LoadBl, true, 0);
         mqPubS("/PairingPin", PairingPin.c_str(), true, 0);
         mqPubI("/SolarStopTimer", SolarStopTimer, false, 0);
+        mqttForceAll = false;
 }
 
 // SmartEVSE server MQTT client setup - subscribe to Set topics

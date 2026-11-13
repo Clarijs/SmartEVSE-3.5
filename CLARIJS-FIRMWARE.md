@@ -26,6 +26,8 @@ for the **Flemish capacity tariff** (*capaciteitstarief*) and for installations 
 6. [Capacity mode Peak and configurable margin](#5-capacity-mode-peak-and-configurable-margin)
 7. [Home battery in watts and Peak Shaving SoC](#6-home-battery-in-watts-and-peak-shaving-soc)
    · [7. Smart mode start current](#7-smart-mode-start-current)
+   · [8. Timeout of the API mains meter](#8-timeout-of-the-api-mains-meter)
+   · [9. MQTT: only changed values](#9-mqtt-only-changed-values)
 8. [Benefits with a home battery](#benefits-with-a-home-battery)
 9. [MQTT and REST reference](#mqtt-and-rest-reference)
 10. [Example setup: P1 meter → SmartEVSE](#example-setup-p1-meter--smartevse)
@@ -301,6 +303,17 @@ stored and published on `/MainsMeterTimeout`. Modbus, Sensorbox and HomeWizard m
 
 During a gap the SmartEVSE keeps regulating on the last measurement, so keep it short: 20–30 s bridges
 a Wi-Fi hiccup without charging blind for long.
+
+---
+
+## 9. MQTT: only changed values
+
+The SmartEVSE builds its MQTT status every 10 seconds (sooner after a change), and used to send all
+~50 topics every time. Now a topic is only sent when its value changed, or once every **60 seconds**
+as a heartbeat so a value never looks stuck. After a connect or reconnect to the broker every topic
+is sent once. The topics, payloads and retain flags are unchanged, so Home Assistant needs nothing new:
+it just receives far fewer messages. Discovery, `Set/` handling and the button and solar timer events
+are not affected.
 
 ---
 
