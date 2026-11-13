@@ -50,6 +50,10 @@ Everything else is under **All settings**. Light and dark, on a phone or a compu
 |---|---|
 | <img src="pictures/clarijs/all-settings-light.png" alt="All settings page, light" width="400"> | <img src="pictures/clarijs/all-settings-dark.png" alt="All settings page, dark" width="400"> |
 
+**Capacity** (All settings → Capacity): mode, margin under your monthly peak and CAP STOP:
+
+<img src="pictures/clarijs/capacity.png" alt="Capacity page: Peak mode, margin and CAP STOP" width="600">
+
 *Screenshots with sample data.*
 
 # Pick your path

@@ -163,6 +163,8 @@ the charger keeps its own value.
 Check `GET /settings`: `capacity_peak_month` should show your meter's peak and `capacity_voltage`
 the measured voltage.
 
+<img src="../../pictures/clarijs/capacity.png" alt="Capacity page: Peak mode, margin and CAP STOP" width="600">
+
 ## 5. What to expect
 
 - At the start of a month the peak is 2500 W (the minimum). It rises automatically when the meter
