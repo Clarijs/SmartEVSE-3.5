@@ -487,7 +487,7 @@ Set the home battery's peak shaving a bit closer to the monthly peak than the Sm
    which is fine for a manual upload.
 3. Set `CAP MODE` and the margin as you like.
 
-**Roll back:** upload `firmware.bin` from the official
+**Roll back:** upload `firmware.bin` or `firmware.signed.bin` from the official
 [v3.11.3 release](https://github.com/dingo35/SmartEVSE-3.5/releases) in the same way. Unknown
 settings (`CapPeakW`, `CapMargin`, `MaxSumMainsT`) are simply ignored. Set `CAP MODE` to a value
 0–3 first, because the official firmware does not know mode 4 (Peak).
@@ -525,7 +525,7 @@ voltage instead of `AssumedVoltage = 230`.
 - The per-phase regulation looks at the contactors, not at the car: a single-phase car on a
   three-phase setup with C2 on is regulated with divisor 3 (the original, slower behaviour).
 - Builds from this fork are unsigned and are not offered by the automatic OTA update of the
-  official firmware.
+  official firmware. Going back to an official release (signed or unsigned) is a normal upload.
 
 ---
 

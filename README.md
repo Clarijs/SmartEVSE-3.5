@@ -78,9 +78,9 @@ Everything else is under **All settings**. Light and dark, on a phone or a compu
 All existing settings are kept. New settings start disabled or at the old default, so the charger
 behaves exactly as before until you change them.
 
-**Rolling back:** the firmware is unsigned, so an official signed release of dingo35 cannot be
-installed directly over it. Flash an official *unsigned* build first, or flash over USB
-(`HowToFlash.txt` in the zip).
+**Rolling back:** upload the official firmware of [dingo35](https://github.com/dingo35/SmartEVSE-3.5/releases)
+the same way: `firmware.bin` or `firmware.signed.bin` both work, nothing special needed. Set `CAP MODE`
+to a value 0–3 first, because the official firmware does not know mode 4 (Peak).
 
 # Status upstream
 

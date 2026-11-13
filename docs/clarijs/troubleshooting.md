@@ -56,5 +56,6 @@ month's value). From 00:15 the peak follows the meter again.
 
 ## Going back to the official firmware
 
-This firmware is unsigned. Flash an official *unsigned* build of dingo35 first, or flash over USB
-(`HowToFlash.txt` in the release zip).
+Upload the official firmware of dingo35 at `http://smartevse-<serial>.local/update`, the same way you
+installed this one: `firmware.bin` or `firmware.signed.bin` both work. Set `CAP MODE` to a value 0–3
+first, because the official firmware does not know mode 4 (Peak). Your other settings are kept.
