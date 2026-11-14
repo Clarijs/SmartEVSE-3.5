@@ -11,6 +11,8 @@ Every change is added to **Unreleased** first; at the next release that section 
   is only sent again when its value changed, plus once a minute as a heartbeat. After a (re)connect
   everything is sent once. Far fewer messages for the broker and Home Assistant; values that change
   still arrive just as fast. Idea from [basmeerman/SmartEVSE-3.5](https://github.com/basmeerman/SmartEVSE-3.5).
+- Merged dingo35 master: **Ethernet (CH390D) no longer stalls under load.** A missed interrupt could stop
+  receiving for 1 s, and a corrupt packet could cause a loop of resets while traffic continued.
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 
