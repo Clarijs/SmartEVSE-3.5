@@ -13,6 +13,10 @@ Every change is added to **Unreleased** first; at the next release that section 
   still arrive just as fast. Idea from [basmeerman/SmartEVSE-3.5](https://github.com/basmeerman/SmartEVSE-3.5).
 - Merged dingo35 master: **Ethernet (CH390D) no longer stalls under load.** A missed interrupt could stop
   receiving for 1 s, and a corrupt packet could cause a loop of resets while traffic continued.
+- **Ethernet diagnostics.** New diagnostic sensors `Eth Rx Overflow`, `Eth Rx Resync`, `Eth Tx Busy` and
+  `Eth Rx Busy Loops` (also under `eth.diag` in `/settings`). When nothing is received or sent for 60 s
+  while the cable is connected, the chip registers and counters are stored once in flash and shown after
+  the next restart as `Eth Last Stall`. Meant to find the cause of a network lockup after the CH390D fix.
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 

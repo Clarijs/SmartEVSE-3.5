@@ -244,6 +244,7 @@ extern uint8_t processAllNodeStates(uint8_t NodeNr);
 extern void BroadcastCurrent(void);
 extern void CheckRFID(void);
 extern void mqttPublishData();
+extern void ch390_diag_tick(void);
 extern void mqttSmartEVSEPublishData();
 extern bool MQTTclientSmartEVSE_AppConnected;
 extern void DisconnectEvent(void);
@@ -1540,6 +1541,8 @@ void Timer1S_singlerun(void) {
     }
 
     //_LOG_A("Timer1S task free ram: %u\n", uxTaskGetStackHighWaterMark( NULL ));
+
+    ch390_diag_tick();                                                  // Ethernet stall diagnostics (no-op without Ethernet)
 
 
 #if MQTT

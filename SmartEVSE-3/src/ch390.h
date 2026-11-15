@@ -204,6 +204,23 @@ esp_err_t ch390_eth_init(void);
 // Get the Ethernet IP address string (empty if no IP).
 const char* ch390_get_ip(void);
 
+// Diagnostics (Clarijs): counters to find out why Ethernet stops receiving.
+struct ch390_diag_t {
+    uint32_t rx_frames;      // frames passed to the IP stack
+    uint32_t rx_overflow;    // ISR reported RX FIFO overflow (ROS/ROO)
+    uint32_t rx_pkt_err;     // corrupt head byte -> FIFO resync
+    uint32_t rx_bad_len;     // impossible frame length -> FIFO resync
+    uint32_t rx_read_fail;   // receive() returned an error
+    uint32_t rx_nomem;       // no heap for a received frame
+    uint32_t tx_busy;        // transmit refused: previous TX still pending
+    uint32_t busy_loops;     // RX task found INT already high (no sleep)
+    uint32_t last_rx_s;      // uptime (s) of the last received frame
+    uint32_t last_tx_s;      // uptime (s) of the last accepted transmit
+};
+extern volatile ch390_diag_t ch390_diag;
+void ch390_diag_tick(void);              // call once per second
+const char *ch390_diag_last(void);       // snapshot stored at the last stall ("" = none)
+
 // Runtime flags
 extern bool EthPresent;     // true if CH390D chip was detected at boot
 extern bool EthConnected;   // true if Ethernet link is up

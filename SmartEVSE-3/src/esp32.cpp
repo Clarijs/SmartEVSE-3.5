@@ -43,6 +43,7 @@ char RequiredEVCCID[32] = "";                                               // R
 #include <soc/rtc_io_struct.h>
 
 #include "esp32.h"
+#include "ch390.h"
 #include "glcd.h"
 #include "utils.h"
 #include "OneWire.h"
@@ -1011,6 +1012,14 @@ void SetupMQTTClient() {
         ", \"entity_category\":\"diagnostic\", \"device_class\":\"signal_strength\", \"unit_of_measurement\":\"dBm\", \"state_class\":\"measurement\"");
     MQTTclient.announce("ESP Temp",   "sensor",
         ", \"entity_category\":\"diagnostic\", \"device_class\":\"temperature\", \"unit_of_measurement\":\"°C\", \"state_class\":\"measurement\"");
+    if (EthPresent) {
+        const char *cnt = ", \"entity_category\":\"diagnostic\", \"state_class\":\"total_increasing\"";
+        MQTTclient.announce("Eth Rx Overflow", "sensor", cnt);
+        MQTTclient.announce("Eth Rx Resync", "sensor", cnt);
+        MQTTclient.announce("Eth Tx Busy", "sensor", cnt);
+        MQTTclient.announce("Eth Rx Busy Loops", "sensor", cnt);
+        MQTTclient.announce("Eth Last Stall", "sensor", ", \"entity_category\":\"diagnostic\"");
+    }
     MQTTclient.announce("ESP Uptime", "sensor",
         ", \"entity_category\":\"diagnostic\", \"device_class\":\"duration\", \"unit_of_measurement\":\"s\", \"state_class\":\"measurement\", \"entity_registry_enabled_default\":\"False\"");
 
@@ -1197,6 +1206,14 @@ void mqttPublishData() {
         }
         mqPubI("/ESPUptime", (int32_t)(esp_timer_get_time() / 1000000), false, 0);
         mqPubI("/WiFiRSSI", WiFi.RSSI(), false, 0);
+        if (EthPresent) {
+            mqPubI("/EthRxOverflow", (int32_t)ch390_diag.rx_overflow, false, 0);
+            mqPubI("/EthRxResync", (int32_t)(ch390_diag.rx_pkt_err + ch390_diag.rx_bad_len), false, 0);
+            mqPubI("/EthTxBusy", (int32_t)ch390_diag.tx_busy, false, 0);
+            mqPubI("/EthRxBusyLoops", (int32_t)ch390_diag.busy_loops, false, 0);
+            const char *last = ch390_diag_last();
+            mqPub("/EthLastStall", last[0] ? last : "none", strlen(last[0] ? last : "none"), true, 0);
+        }
         mqPubI("/LoadBl", LoadBl, true, 0);
         mqPubS("/PairingPin", PairingPin.c_str(), true, 0);
         mqPubI("/SolarStopTimer", SolarStopTimer, false, 0);
@@ -1763,6 +1780,17 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         doc["eth"]["present"] = EthPresent;
         doc["eth"]["connected"] = EthConnected;
         doc["eth"]["has_ip"] = EthHasIP;
+        if (EthPresent) {
+            doc["eth"]["diag"]["rx_frames"] = ch390_diag.rx_frames;
+            doc["eth"]["diag"]["rx_overflow"] = ch390_diag.rx_overflow;
+            doc["eth"]["diag"]["rx_pkt_err"] = ch390_diag.rx_pkt_err;
+            doc["eth"]["diag"]["rx_bad_len"] = ch390_diag.rx_bad_len;
+            doc["eth"]["diag"]["rx_read_fail"] = ch390_diag.rx_read_fail;
+            doc["eth"]["diag"]["rx_nomem"] = ch390_diag.rx_nomem;
+            doc["eth"]["diag"]["tx_busy"] = ch390_diag.tx_busy;
+            doc["eth"]["diag"]["busy_loops"] = ch390_diag.busy_loops;
+            doc["eth"]["diag"]["last_stall"] = ch390_diag_last();
+        }
         if (EthHasIP) {
             doc["eth"]["ip"] = ch390_get_ip();
         }

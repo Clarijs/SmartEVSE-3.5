@@ -23,6 +23,7 @@
 #include "freertos/semphr.h"
 #include "esp_timer.h"
 #include "esp_rom_sys.h"
+#include <Preferences.h>
 
 // ---------- Runtime state ----------
 bool EthPresent  = false;
@@ -130,6 +131,8 @@ typedef struct {
 } emac_ch390_t;
 
 static emac_ch390_t *s_emac = NULL;
+volatile ch390_diag_t ch390_diag = {};
+static inline uint32_t ch390_uptime_s(void) { return (uint32_t)(esp_timer_get_time() / 1000000); }
 static volatile bool s_force_link_down = false;
 
 
@@ -267,6 +270,8 @@ static void ch390_rx_task(void *arg) {
         // low, otherwise a missed edge stalls RX for up to 1 s (FIFO overflow).
         if (gpio_get_level((gpio_num_t)CH390_INT) == 0) {
             ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
+        } else {
+            ch390_diag.busy_loops++;
         }
 
         // Mask while clearing: a bit set between read and write-back would
@@ -277,6 +282,7 @@ static void ch390_rx_task(void *arg) {
         ch390_reg_write(CH390_ISR, status);
         ch390_reg_write(CH390_IMR, IMR_PAR | IMR_PRI);
         CH390_UNLOCK(emac);
+        if (status & (ISR_ROS | ISR_ROO)) ch390_diag.rx_overflow++;
 
         /* packet received */
         if (status & ISR_PR) {
@@ -289,13 +295,17 @@ static void ch390_rx_task(void *arg) {
                     /* allocate memory and check whether allocation failed */
                     buffer = (uint8_t *)malloc(frame_len);
                     if (buffer == NULL) {
+                        ch390_diag.rx_nomem++;
                         _LOG_A("CH390: no memory for receive buffer\n");
                         continue;
                     }
                     /* pass the buffer to stack (e.g. TCP/IP layer) */
+                    ch390_diag.rx_frames++;
+                    ch390_diag.last_rx_s = ch390_uptime_s();
                     memcpy(buffer, emac->rx_buffer, frame_len);
                     emac->eth->stack_input(emac->eth, buffer, frame_len);
                 } else {
+                    ch390_diag.rx_read_fail++;
                     _LOG_W("CH390: frame read failed\n");
                     break;
                 }
@@ -383,6 +393,7 @@ static esp_err_t ch390_mac_transmit(esp_eth_mac_t *mac, uint8_t *buf, uint32_t l
     } while ((tcr & TCR_TXREQ) && ((esp_timer_get_time() - wait_time) < 1000));
 
     if (tcr & TCR_TXREQ) {
+        ch390_diag.tx_busy++;
         _LOG_W("CH390: last transmit still in progress, cannot send\n");
         CH390_UNLOCK(emac);
         return ESP_ERR_INVALID_STATE;
@@ -397,6 +408,7 @@ static esp_err_t ch390_mac_transmit(esp_eth_mac_t *mac, uint8_t *buf, uint32_t l
     ch390_reg_write(CH390_TCR, tcr | TCR_TXREQ);
 
     CH390_UNLOCK(emac);
+    ch390_diag.last_tx_s = ch390_uptime_s();
     return ESP_OK;
 }
 
@@ -415,6 +427,7 @@ static esp_err_t ch390_mac_receive(esp_eth_mac_t *mac, uint8_t *buf, uint32_t *l
     // Corrupt head byte (pointer out of step, typically after an overflow):
     // resync to the write pointer; a reset to SRAM start fails again at once.
     if (rxbyte & CH390_PKT_ERR) {
+        ch390_diag.rx_pkt_err++;
         ch390_rx_resync_locked();
         CH390_UNLOCK(emac);
         return ESP_ERR_INVALID_RESPONSE;
@@ -434,6 +447,7 @@ static esp_err_t ch390_mac_receive(esp_eth_mac_t *mac, uint8_t *buf, uint32_t *l
             CH390_UNLOCK(emac);
             return ESP_ERR_INVALID_RESPONSE;
         } else if (*length > ETH_MAX_PACKET_SIZE) {
+            ch390_diag.rx_bad_len++;
             ch390_rx_resync_locked();
             CH390_UNLOCK(emac);
             return ESP_ERR_INVALID_RESPONSE;
@@ -996,4 +1010,67 @@ esp_err_t ch390_eth_init(void) {
 
     _LOG_I("CH390D Ethernet initialized, DHCP started\n");
     return ESP_OK;
+}
+
+
+// ---- Diagnostics (Clarijs) ------------------------------------------------
+// When nothing has been received for 60 s while the link is up, the chip state
+// and the counters are written once to NVS ("ethdiag"/"last"), so they survive
+// the power cycle that is needed to get the network back.
+static char ch390_diag_last_buf[220] = "";
+static bool ch390_diag_loaded = false;
+static bool ch390_diag_stored = false;
+
+const char *ch390_diag_last(void) {
+    if (!ch390_diag_loaded) {
+        Preferences p;
+        if (p.begin("ethdiag", true)) {
+            p.getString("last", ch390_diag_last_buf, sizeof(ch390_diag_last_buf));
+            p.end();
+        }
+        ch390_diag_loaded = true;
+    }
+    return ch390_diag_last_buf;
+}
+
+void ch390_diag_tick(void) {
+    if (!EthPresent || !s_emac || ch390_diag_stored) return;
+    uint32_t now = ch390_uptime_s();
+    if (!ch390_diag.last_rx_s || !ch390_diag.last_tx_s) return;           // not up yet
+    uint32_t rx_idle = now - ch390_diag.last_rx_s, tx_idle = now - ch390_diag.last_tx_s;
+    if (rx_idle < 60 && tx_idle < 60) return;
+
+    uint8_t nsr = 0, isr = 0, imr = 0, rcr = 0, tcr = 0, rocr = 0, wph = 0, wpl = 0, rph = 0, rpl = 0;
+    CH390_LOCK(s_emac);
+    ch390_reg_read(CH390_NSR, &nsr);
+    ch390_reg_read(CH390_ISR, &isr);
+    ch390_reg_read(CH390_IMR, &imr);
+    ch390_reg_read(CH390_RCR, &rcr);
+    ch390_reg_read(CH390_TCR, &tcr);
+    ch390_reg_read(CH390_ROCR, &rocr);
+    ch390_reg_read(CH390_RWPAH, &wph);
+    ch390_reg_read(CH390_RWPAL, &wpl);
+    ch390_reg_read(CH390_MRRH, &rph);
+    ch390_reg_read(CH390_MRRL, &rpl);
+    CH390_UNLOCK(s_emac);
+    if (!(nsr & NSR_LINKST)) return;          // cable unplugged: not a driver stall
+
+    char b[sizeof(ch390_diag_last_buf)];
+    snprintf(b, sizeof(b),
+        "up=%lu rxidle=%lu txidle=%lu INT=%d NSR=%02X ISR=%02X IMR=%02X RCR=%02X TCR=%02X ROCR=%02X WP=%02X%02X RP=%02X%02X "
+        "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu",
+        (unsigned long)now, (unsigned long)rx_idle, (unsigned long)tx_idle, gpio_get_level((gpio_num_t)CH390_INT),
+        nsr, isr, imr, rcr, tcr, rocr, wph, wpl, rph, rpl,
+        (unsigned long)ch390_diag.rx_frames, (unsigned long)ch390_diag.rx_overflow, (unsigned long)ch390_diag.rx_pkt_err,
+        (unsigned long)ch390_diag.rx_bad_len, (unsigned long)ch390_diag.rx_read_fail, (unsigned long)ch390_diag.rx_nomem,
+        (unsigned long)ch390_diag.tx_busy, (unsigned long)ch390_diag.busy_loops);
+    _LOG_A("CH390 stall: %s\n", b);
+    Preferences p;
+    if (p.begin("ethdiag", false)) {
+        p.putString("last", b);
+        p.end();
+    }
+    strlcpy(ch390_diag_last_buf, b, sizeof(ch390_diag_last_buf));
+    ch390_diag_loaded = true;
+    ch390_diag_stored = true;   // once per boot; the snapshot from the previous boot stays readable until then
 }
