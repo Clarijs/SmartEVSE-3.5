@@ -17,6 +17,12 @@ Every change is added to **Unreleased** first; at the next release that section 
   `Eth Rx Busy Loops` (also under `eth.diag` in `/settings`). When nothing is received or sent for 60 s
   while the cable is connected, the chip registers and counters are stored once in flash and shown after
   the next restart as `Eth Last Stall`. Meant to find the cause of a network lockup after the CH390D fix.
+- **Fix: Ethernet could stay deaf until a power cycle** (found with the diagnostics above). After a bad
+  frame the CH390D could still hold received data while its "packet received" interrupt was already
+  cleared; nothing read the buffer again, it filled up and every new frame was dropped. The driver now
+  also drains the buffer when the chip reports data waiting, keeps reading after a bad frame, and
+  restarts the receiver when nothing arrives for 30 s with the cable connected. New diagnostic sensors
+  `Eth Rx Kick` and `Eth Rx Reset` count how often that safety net was needed.
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 

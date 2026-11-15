@@ -180,6 +180,20 @@ static void ch390_rx_resync_locked(void) {
     ch390_reg_write(CH390_MRRL, rwpl);
 }
 
+// Restart the receiver without losing the chip setup: RX off, drop the FIFO
+// (read pointer onto write pointer), clear status, RX on. Caller holds spi_lock.
+static void ch390_rx_restart_locked(void) {
+    uint8_t rcr;
+    ch390_reg_write(CH390_IMR, IMR_PAR);
+    ch390_reg_read(CH390_RCR, &rcr);
+    ch390_reg_write(CH390_RCR, rcr & ~RCR_RXEN);
+    esp_rom_delay_us(100);
+    ch390_rx_resync_locked();
+    ch390_reg_write(CH390_ISR, ISR_CLR_STATUS);
+    ch390_reg_write(CH390_RCR, rcr | RCR_RXEN);
+    ch390_reg_write(CH390_IMR, IMR_PAR | IMR_PRI);
+}
+
 // Full software reset + register reinit. Caller must hold spi_lock.
 // Does NOT enable RX/interrupts — caller must call ch390_start_locked() afterwards.
 // Returns true if the chip responded correctly after reset, false if SPI/chip is dead.
@@ -263,7 +277,7 @@ static void IRAM_ATTR ch390_isr_handler(void *arg) {
 // RX task — matches reference emac_ch390_task structure
 static void ch390_rx_task(void *arg) {
     emac_ch390_t *emac = (emac_ch390_t *)arg;
-    uint8_t status = 0;
+    uint8_t status = 0, nsr = 0;
     uint8_t *buffer;
     while (1) {
         // INT is a level but the GPIO is edge-triggered: only sleep while it is
@@ -280,13 +294,22 @@ static void ch390_rx_task(void *arg) {
         ch390_reg_write(CH390_IMR, IMR_PAR);
         ch390_reg_read(CH390_ISR, &status);
         ch390_reg_write(CH390_ISR, status);
+        ch390_reg_read(CH390_NSR, &nsr);
         ch390_reg_write(CH390_IMR, IMR_PAR | IMR_PRI);
         CH390_UNLOCK(emac);
         if (status & (ISR_ROS | ISR_ROO)) ch390_diag.rx_overflow++;
 
-        /* packet received */
-        if (status & ISR_PR) {
-            do {
+        // Clarijs: also drain when the SRAM holds data without a PR interrupt.
+        // Once PR is lost (cleared while frames were left behind after a read
+        // error) nothing else ever reads the FIFO: it fills up, new frames are
+        // dropped and Ethernet stays deaf until a power cycle.
+        bool pending = (status & ISR_PR) || (nsr & NSR_RXRDY);
+        if (!(status & ISR_PR) && (nsr & NSR_RXRDY)) ch390_diag.rx_kick++;
+
+        if (pending) {
+            int budget = 64;                     // frames per pass, then yield
+            int failures = 0;
+            while (budget-- > 0) {
                 uint32_t frame_len = 0;
                 if (emac->parent.receive(&emac->parent, emac->rx_buffer, &frame_len) == ESP_OK) {
                     if (frame_len == 0) {
@@ -299,20 +322,37 @@ static void ch390_rx_task(void *arg) {
                         _LOG_A("CH390: no memory for receive buffer\n");
                         continue;
                     }
-                    /* pass the buffer to stack (e.g. TCP/IP layer) */
                     ch390_diag.rx_frames++;
                     ch390_diag.last_rx_s = ch390_uptime_s();
+                    /* pass the buffer to stack (e.g. TCP/IP layer) */
                     memcpy(buffer, emac->rx_buffer, frame_len);
                     emac->eth->stack_input(emac->eth, buffer, frame_len);
                 } else {
+                    // The bad frame was dropped or the FIFO resynced; keep going
+                    // instead of leaving the rest of the FIFO unread.
                     ch390_diag.rx_read_fail++;
                     _LOG_W("CH390: frame read failed\n");
-                    break;
+                    if (++failures >= 4) break;
                 }
-            } while (1);
+            }
 
             // Yield briefly after draining all pending packets.
             vTaskDelay(1);
+        }
+
+        // Watchdog: link up but nothing received for 30 s -> restart the receiver.
+        // (MQTT, the mains meter and ARP keep a working link busy every second.)
+        uint32_t now = ch390_uptime_s();
+        if ((nsr & NSR_LINKST) && ch390_diag.last_rx_s && now - ch390_diag.last_rx_s >= 30) {
+            static uint32_t last_reset_s = 0;
+            if (now - last_reset_s >= 30) {
+                last_reset_s = now;
+                ch390_diag.rx_reset++;
+                _LOG_A("CH390: nothing received for %lus, restarting RX\n", (unsigned long)(now - ch390_diag.last_rx_s));
+                CH390_LOCK(emac);
+                ch390_rx_restart_locked();
+                CH390_UNLOCK(emac);
+            }
         }
     }
     vTaskDelete(NULL);
@@ -1058,12 +1098,13 @@ void ch390_diag_tick(void) {
     char b[sizeof(ch390_diag_last_buf)];
     snprintf(b, sizeof(b),
         "up=%lu rxidle=%lu txidle=%lu INT=%d NSR=%02X ISR=%02X IMR=%02X RCR=%02X TCR=%02X ROCR=%02X WP=%02X%02X RP=%02X%02X "
-        "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu",
+        "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu kick=%lu rst=%lu",
         (unsigned long)now, (unsigned long)rx_idle, (unsigned long)tx_idle, gpio_get_level((gpio_num_t)CH390_INT),
         nsr, isr, imr, rcr, tcr, rocr, wph, wpl, rph, rpl,
         (unsigned long)ch390_diag.rx_frames, (unsigned long)ch390_diag.rx_overflow, (unsigned long)ch390_diag.rx_pkt_err,
         (unsigned long)ch390_diag.rx_bad_len, (unsigned long)ch390_diag.rx_read_fail, (unsigned long)ch390_diag.rx_nomem,
-        (unsigned long)ch390_diag.tx_busy, (unsigned long)ch390_diag.busy_loops);
+        (unsigned long)ch390_diag.tx_busy, (unsigned long)ch390_diag.busy_loops,
+        (unsigned long)ch390_diag.rx_kick, (unsigned long)ch390_diag.rx_reset);
     _LOG_A("CH390 stall: %s\n", b);
     Preferences p;
     if (p.begin("ethdiag", false)) {

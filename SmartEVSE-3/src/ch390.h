@@ -106,6 +106,8 @@
 #define NSR_TX2END      (1 << 3)
 #define NSR_TX1END      (1 << 2)
 #define NSR_LINKST      (1 << 6)    // Link status (1=up)
+#define NSR_RXOV        (1 << 1)    // RX FIFO overflow
+#define NSR_RXRDY       (1 << 0)    // RX SRAM holds a packet
 
 #define TCR_TXREQ       (1 << 0)    // TX request
 #define TCR2_RLCP       (1 << 6)    // Retry late collision
@@ -214,6 +216,8 @@ struct ch390_diag_t {
     uint32_t rx_nomem;       // no heap for a received frame
     uint32_t tx_busy;        // transmit refused: previous TX still pending
     uint32_t busy_loops;     // RX task found INT already high (no sleep)
+    uint32_t rx_kick;        // data in RX SRAM without a PR interrupt: drained anyway
+    uint32_t rx_reset;       // RX path reset by the 30 s no-receive watchdog
     uint32_t last_rx_s;      // uptime (s) of the last received frame
     uint32_t last_tx_s;      // uptime (s) of the last accepted transmit
 };
