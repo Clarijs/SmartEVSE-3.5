@@ -23,6 +23,11 @@ Every change is added to **Unreleased** first; at the next release that section 
   also drains the buffer when the chip reports data waiting, keeps reading after a bad frame, and
   restarts the receiver when nothing arrives for 30 s with the cable connected. New diagnostic sensors
   `Eth Rx Kick` and `Eth Rx Reset` count how often that safety net was needed.
+- **Dashboard: "Live power" replaces the 10-minute chart.** One row House · Grid · Battery · Car with
+  moving dots in the direction the energy flows (line thickness follows the power) and a status line in
+  plain words, e.g. "The home battery helps the car with 1.29 kW" or "the battery stays out of the car".
+  Without a home battery the battery circle is hidden. House is calculated (grid − car − battery), so it
+  turns negative and green when solar produces more than the house uses.
 
 ## v3.11.3-Clarijs.5 — 11 Nov 2026
 

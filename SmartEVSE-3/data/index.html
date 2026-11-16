@@ -59,10 +59,23 @@ p.ex{margin:0;font-size:14px;color:var(--tx2);line-height:1.5}
 .badge.on{background:var(--accbg);color:var(--accfg)}
 .batt{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .soc{font-size:44px;font-weight:700;line-height:1}
-.chartbox{position:relative}
-svg.chart{width:100%;height:200px;display:block}
-.yl{position:absolute;left:0;transform:translateY(-50%);font-size:12px;color:var(--tx3);background:var(--card);padding:0 4px 0 0;line-height:1.2;pointer-events:none}
-.yl.cl{left:auto;right:0;padding:0 0 0 4px;color:var(--warn);font-weight:600}
+.flow{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:8px;position:relative;--r:132px}
+.fnode{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+.ring{width:var(--r);max-width:100%;aspect-ratio:1;border-radius:50%;border:3px solid var(--c);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--card);position:relative;z-index:1}
+.ring svg{width:22px;height:22px;stroke:var(--tx2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ring .lbl{font-size:12px;letter-spacing:.08em;color:var(--tx3);font-weight:600}
+.ring .val{font-size:clamp(15px,2.1vw,24px);font-weight:700;white-space:nowrap}
+.fnode .st{font-size:13.5px;color:var(--tx3);min-height:1.3em}
+.flinks{position:absolute;left:0;top:calc(var(--r)/2 - 8px);height:16px;width:100%;overflow:visible;pointer-events:none}
+.flinks .base{stroke:var(--soft);stroke-width:6;stroke-linecap:round}
+.fd{fill:none;stroke-linecap:round;stroke-dasharray:2 16;animation:frun 1s linear infinite}
+.fd.rev{animation-direction:reverse}
+.fd.off{opacity:0}
+@keyframes frun{to{stroke-dashoffset:-18}}
+@media (prefers-reduced-motion:reduce){.fd{animation:none;stroke-dasharray:none}}
+@media (max-width:560px){.flow{--r:76px;gap:4px}.ring .val{font-size:14px}.ring .lbl{font-size:9px;letter-spacing:.04em}.ring svg{width:14px;height:14px}.fnode .st{font-size:11px}.ring{border-width:2.5px}}
+.fstatus{background:var(--bg);border-left:4px solid var(--acc);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--tx2);line-height:1.45}
+.fstatus.warn{border-left-color:var(--bat)}
 .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
 .mode{text-align:left;display:flex;flex-direction:column;gap:10px;padding:18px;min-height:130px;border-radius:20px;background:var(--card);color:var(--tx);border:1px solid var(--line);cursor:pointer}
 .mode[aria-pressed=true]{border:3px solid var(--acc);box-shadow:0 6px 20px rgba(0,0,0,.10)}
@@ -160,28 +173,28 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
   </section>
 </div>
 
-<section class="card">
-  <div class="ch"><h2>Last 10 minutes</h2>
-    <div class="legend">
-      <span><i class="sw" style="background:var(--tx);height:3px;width:14px"></i>Grid</span>
-      <span><i class="sw" style="background:var(--acc);height:3px;width:14px"></i>Car</span>
-      <span id="lg-bat"><i class="sw" style="background:var(--bat);height:3px;width:14px"></i>Battery</span>
-      <span><i class="sw" style="border-top:2px dashed var(--warn);width:14px;height:0;border-radius:0"></i>Ceiling</span>
+<section class="card" aria-live="polite">
+  <div class="ch"><h2>Live power</h2><span class="meta" id="f-time">&nbsp;</span></div>
+  <div class="flow" id="flow">
+    <svg class="flinks" id="flinks" viewBox="0 0 1000 16" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="fnode" style="--c:var(--house)">
+      <div class="ring"><svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-9-1L0-9l9 8V9h-18z"/></svg><span class="lbl">HOUSE</span><span class="val" id="f-house">&mdash;</span></div>
+      <span class="st" id="fs-house">other on the meter</span>
+    </div>
+    <div class="fnode" style="--c:var(--tx2)">
+      <div class="ring"><svg viewBox="-12 -14 24 26" aria-hidden="true"><path d="M-6 11l6-22 6 22M-9-2h18M-5-8h10"/></svg><span class="lbl">GRID</span><span class="val" id="f-grid">&mdash;</span></div>
+      <span class="st" id="fs-grid">&nbsp;</span>
+    </div>
+    <div class="fnode" id="fn-bat" style="--c:var(--bat)">
+      <div class="ring"><svg viewBox="-12 -12 24 24" aria-hidden="true"><rect x="-9" y="-6" width="18" height="12" rx="2"/><path d="M-3-9h6"/><rect id="f-bfill" x="-7" y="-4" height="8" width="5" style="fill:var(--bat);stroke:none"/></svg><span class="lbl">BATTERY</span><span class="val" id="f-bat">&mdash;</span></div>
+      <span class="st" id="fs-bat">&nbsp;</span>
+    </div>
+    <div class="fnode" style="--c:var(--acc)">
+      <div class="ring"><svg viewBox="-14 -10 28 20" aria-hidden="true"><path d="M-9-6h18l3 6v5h-24V0z"/><circle cx="-6" cy="6" r="2"/><circle cx="6" cy="6" r="2"/></svg><span class="lbl">CAR</span><span class="val" id="f-car" style="color:var(--accfg)">&mdash;</span></div>
+      <span class="st" id="fs-car">&nbsp;</span>
     </div>
   </div>
-  <div class="chartbox">
-  <svg class="chart" id="chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Grid, car and battery power over the last ten minutes">
-    <line id="k-ceil" x1="0" x2="600" y1="-10" y2="-10" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
-    <line id="k-zero" x1="0" x2="600" y1="170" y2="170" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-    <polyline id="k-grid" fill="none" stroke="var(--tx)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    <polyline id="k-car" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
-    <polyline id="k-bat" fill="none" stroke="var(--bat)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-  </svg>
-    <span class="yl" id="k-top" style="top:5.6%"></span>
-    <span class="yl" id="k-0"></span>
-    <span class="yl cl" id="k-cl"></span>
-  </div>
-  <div class="ch meta"><span>&minus;10 min</span><span>&minus;5 min</span><span>now</span></div>
+  <div class="fstatus" id="f-status">&nbsp;</div>
 </section>
 
 <section style="display:flex;flex-direction:column;gap:12px">
@@ -218,9 +231,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-s
 const $ = (id) => document.getElementById(id);
 const fmtW = (w) => Math.round(w).toLocaleString("nl-BE").replace(/\./g, " ") + " W";
 let d = null, fails = 0, timer = 0, lastActiveMode = 3, editing = 0;
-const HIST_MS = 600000, POLL_MS = 3000;
-let hist = [];
-try { hist = JSON.parse(sessionStorage.getItem("dash-hist") || "[]"); } catch (e) { hist = []; }
+const POLL_MS = 3000;
 
 function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2500); }
 
@@ -314,7 +325,6 @@ function render() {
 
   // battery
   $("bat").classList.toggle("hidden", !batOn);
-  $("lg-bat").classList.toggle("hidden", !batOn);
   if (batOn) {
     $("b-soc").textContent = fmtW(bat);
     $("b-pw").textContent = bat > 50 ? "Charging" : bat < -50 ? "Discharging" : "Idle";
@@ -337,33 +347,55 @@ function render() {
     $("q-ovmax").textContent = "max " + s.current_max + " A";
   }
 
-  // history + chart
-  const now = Date.now();
-  hist.push([now, Math.round(grid), Math.round(ev), Math.round(bat), Math.round(ceil)]);
-  hist = hist.filter((p) => now - p[0] <= HIST_MS);
-  try { sessionStorage.setItem("dash-hist", JSON.stringify(hist)); } catch (er) {}
-  drawChart(now);
+  renderFlow(grid, ev, bat, batOn, hb, ceil, room, charging, amps, e.nrofphases);
   $("f-upd").textContent = "Updated " + new Date().toLocaleTimeString();
 }
 
-function drawChart(now) {
-  let hi = 1000, lo = 0;
-  hist.forEach((p) => { hi = Math.max(hi, p[1], p[2], p[4]); lo = Math.min(lo, p[1], p[3]); });
-  hi = Math.ceil(hi * 1.05 / 500) * 500; lo = lo < 0 ? -Math.ceil(-lo * 1.1 / 500) * 500 : 0;
-  const y = (w) => (170 - (w - lo) / (hi - lo) * 160).toFixed(1);
-  const x = (t) => (600 - (now - t) / HIST_MS * 600).toFixed(1);
-  const pts = (i) => hist.map((p) => x(p[0]) + "," + y(p[i])).join(" ");
-  $("k-grid").setAttribute("points", pts(1));
-  $("k-car").setAttribute("points", pts(2));
-  $("k-bat").setAttribute("points", $("bat").classList.contains("hidden") ? "" : pts(3));
-  const c = hist.length ? hist[hist.length - 1][4] : 0;
-  $("k-ceil").setAttribute("y1", c > 0 ? y(c) : -10); $("k-ceil").setAttribute("y2", c > 0 ? y(c) : -10);
-  $("k-zero").setAttribute("y1", y(0)); $("k-zero").setAttribute("y2", y(0));
-  const pctY = (w) => (y(w) / 180 * 100).toFixed(1) + "%";
-  $("k-top").textContent = fmtW(hi);
-  $("k-0").textContent = "0 W"; $("k-0").style.top = pctY(0);
-  const cl = $("k-cl");
-  if (c > 0) { cl.textContent = "Ceiling " + fmtW(c); cl.style.top = pctY(c); cl.classList.remove("hidden"); } else cl.classList.add("hidden");
+const fmtP = (w) => Math.abs(w) >= 1000 ? (Math.abs(w) / 1000).toFixed(2) + " kW" : Math.round(Math.abs(w)) + " W";
+// one segment of the row; flow > 0 runs left to right
+function fseg(i, n, flow, color) {
+  const x1 = (i + 0.5) / n * 1000, x2 = (i + 1.5) / n * 1000, on = Math.abs(flow) >= 30;
+  const w = (3 + Math.min(Math.abs(flow), 5000) / 5000 * 6).toFixed(1);
+  return '<line class="base" x1="' + x1 + '" x2="' + x2 + '" y1="8" y2="8" vector-effect="non-scaling-stroke"/>' +
+    '<line class="fd' + (flow < 0 ? " rev" : "") + (on ? "" : " off") + '" x1="' + x1 + '" x2="' + x2 + '" y1="8" y2="8" stroke="' + color + '" stroke-width="' + w + '" vector-effect="non-scaling-stroke"/>';
+}
+
+function renderFlow(grid, ev, bat, batOn, hb, ceil, room, charging, amps, phases) {
+  // row: House | Grid | Battery | Car.  House = what the meter sees besides car and battery (net of solar)
+  const house = grid - ev - (batOn ? bat : 0);
+  const solar = grid < -30 || house < -30;
+  const n = batOn ? 4 : 3;
+  $("flow").style.setProperty("--n", n);
+  $("fn-bat").classList.toggle("hidden", !batOn);
+  $("f-house").textContent = (house < -30 ? "−" : "") + fmtP(house);
+  $("f-house").style.color = house < -30 ? "var(--accfg)" : "";
+  $("fs-house").textContent = house < -30 ? "producing (solar)" : "other on the meter";
+  $("f-grid").textContent = (grid < -30 ? "−" : "") + fmtP(grid);
+  $("f-grid").style.color = grid < -30 ? "var(--accfg)" : "";
+  $("fs-grid").textContent = grid < -30 ? "exporting" : grid > 30 ? "importing" : "balanced";
+  if (batOn) {
+    $("f-bat").textContent = fmtP(bat);
+    const soc = typeof hb.soc === "number" ? hb.soc : null;
+    $("fs-bat").textContent = (soc !== null ? soc + " % · " : "") + (bat > 50 ? "charging" : bat < -50 ? "discharging" : hb.peak_shaving_active ? "peak shaving" : "idle");
+    $("f-bfill").setAttribute("width", soc !== null ? Math.max(1, 14 * soc / 100).toFixed(1) : "0");
+  }
+  $("f-car").textContent = fmtP(ev);
+  $("fs-car").textContent = charging ? "charging · " + amps.toFixed(1) + " A · " + (phases === 3 ? "3P" : "1P") : "not charging";
+  const gcol = "var(--tx2)", scol = "var(--acc)";
+  const f0 = -house, f1 = grid - house;
+  let h = fseg(0, n, f0, house < -30 ? scol : "var(--house)");
+  if (batOn) h += fseg(1, n, f1, solar ? scol : gcol) + fseg(2, n, ev, bat < -50 ? "var(--bat)" : solar ? scol : gcol);
+  else h += fseg(1, n, ev, solar ? scol : gcol);
+  $("flinks").innerHTML = h;
+  // status in plain words
+  let t, warn = false;
+  if (grid < -30) t = "Exporting " + fmtW(-grid) + (charging ? " while the car charges on solar." : ".") + (batOn && bat > 50 ? " The home battery is charging." : "");
+  else if (charging && batOn && bat < -50) { t = "The home battery helps the car with " + fmtP(bat) + "." + (ceil > 0 ? " Grid " + fmtW(grid) + " of " + fmtW(ceil) + "." : ""); warn = true; }
+  else if (charging && ceil > 0) t = "Charging under your ceiling: " + fmtW(grid) + " of " + fmtW(ceil) + " used, " + fmtW(room) + " left." + (batOn && hb.peak_shaving_active ? " The battery is below " + hb.peak_shaving_soc + " %, so it stays out of the car." : "");
+  else if (charging) t = "Charging at " + fmtP(ev) + ".";
+  else t = "Not charging. The house uses " + fmtW(Math.max(0, house)) + (batOn && bat < -50 ? ", partly from the home battery." : ".");
+  $("f-status").textContent = t; $("f-status").classList.toggle("warn", warn);
+  $("f-time").textContent = new Date().toLocaleTimeString();
 }
 
 function poll() {
