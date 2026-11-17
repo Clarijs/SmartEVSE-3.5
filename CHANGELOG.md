@@ -29,6 +29,12 @@ Every change is added to **Unreleased** first; at the next release that section 
   `Eth Last Stall` still from the previous firmware). The chip registers and counters are now stored just
   before each receiver restart (`why=rxwd`, once per stall), the 60 s snapshot stays for other stalls
   (`why=idle`). The flash write happens in the main loop, not in the Ethernet task.
+- **Fix: Ethernet stall recovered after 1 s instead of 30 s** (found with the snapshot above, 17 Nov 18:09).
+  The CH390D reported a frame waiting while the byte at its read pointer was 0x00; the driver took that
+  as "no frame", never resynced, the buffer filled up and nothing was received until the 30 s restart —
+  long enough for a mains-meter communication error. When this lasts 1 s the receiver is now restarted at
+  once. New diagnostic sensor `Eth Rx Zero` (REST `eth.diag.rx_zero`) counts it; the snapshot gets
+  `why=zero` and a `zero=` counter. The 30 s restart stays as a last resort.
 - **Dashboard: "Live power" replaces the 10-minute chart.** One row House · Grid · Battery · Car with
   moving dots in the direction the energy flows (line thickness follows the power) and a status line in
   plain words, e.g. "The home battery helps the car with 1.29 kW" or "the battery stays out of the car".

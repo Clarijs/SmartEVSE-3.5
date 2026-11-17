@@ -200,6 +200,21 @@ static void ch390_rx_restart_locked(void) {
     ch390_reg_write(CH390_IMR, IMR_PAR | IMR_PRI);
 }
 
+// Restart the receiver after a stall, taking a diagnostic snapshot first (the
+// restart clears exactly the state we want to see). Only the snapshot is taken
+// here; the flash write happens later in ch390_diag_tick() (main loop), not on
+// the 4 KB RX task stack. One snapshot per stall: further restarts without a
+// frame received in between are the same stall. Caller holds spi_lock.
+static void ch390_rx_recover_locked(const char *why, uint32_t now) {
+    static uint32_t snap_frames = UINT32_MAX;
+    if (!ch390_diag_pending_set && ch390_diag.rx_frames != snap_frames &&
+        ch390_diag_snapshot_locked(why, now, ch390_diag_pending, sizeof(ch390_diag_pending))) {
+        snap_frames = ch390_diag.rx_frames;
+        ch390_diag_pending_set = true;
+    }
+    ch390_rx_restart_locked();
+}
+
 // Full software reset + register reinit. Caller must hold spi_lock.
 // Does NOT enable RX/interrupts — caller must call ch390_start_locked() afterwards.
 // Returns true if the chip responded correctly after reset, false if SPI/chip is dead.
@@ -312,15 +327,19 @@ static void ch390_rx_task(void *arg) {
         bool pending = (status & ISR_PR) || (nsr & NSR_RXRDY);
         if (!(status & ISR_PR) && (nsr & NSR_RXRDY)) ch390_diag.rx_kick++;
 
+        bool zero_head = false;                  // RXRDY, but nothing readable at the read pointer
         if (pending) {
             int budget = 64;                     // frames per pass, then yield
             int failures = 0;
+            int got = 0;
             while (budget-- > 0) {
                 uint32_t frame_len = 0;
                 if (emac->parent.receive(&emac->parent, emac->rx_buffer, &frame_len) == ESP_OK) {
                     if (frame_len == 0) {
+                        if (got == 0 && failures == 0 && (nsr & NSR_RXRDY)) zero_head = true;
                         break;
                     }
+                    got++;
                     /* allocate memory and check whether allocation failed */
                     buffer = (uint8_t *)malloc(frame_len);
                     if (buffer == NULL) {
@@ -346,27 +365,40 @@ static void ch390_rx_task(void *arg) {
             vTaskDelay(1);
         }
 
+        uint32_t now = ch390_uptime_s();
+
+        // Clarijs: the chip reports a frame waiting (NSR RXRDY) but the head byte
+        // at the read pointer is 0x00, so receive() sees "no frame" and never
+        // resyncs. The FIFO fills up and RX stays deaf until the 30 s watchdog
+        // (stall snapshots of 15 and 17 Nov: NSR RXRDY+RXOV, RP ~1 KB ahead of WP).
+        // If that persists for 1 s, restart the receiver right away.
+        static int64_t zero_since_ms = 0;
+        if (zero_head) {
+            int64_t now_ms = esp_timer_get_time() / 1000;
+            if (!zero_since_ms) {
+                zero_since_ms = now_ms;
+            } else if (now_ms - zero_since_ms >= 1000) {
+                zero_since_ms = 0;
+                ch390_diag.rx_zero++;
+                _LOG_A("CH390: RXRDY without a readable frame for 1 s, restarting RX\n");
+                CH390_LOCK(emac);
+                ch390_rx_recover_locked("zero", now);
+                CH390_UNLOCK(emac);
+            }
+        } else {
+            zero_since_ms = 0;
+        }
+
         // Watchdog: link up but nothing received for 30 s -> restart the receiver.
         // (MQTT, the mains meter and ARP keep a working link busy every second.)
-        uint32_t now = ch390_uptime_s();
         if ((nsr & NSR_LINKST) && ch390_diag.last_rx_s && now - ch390_diag.last_rx_s >= 30) {
             static uint32_t last_reset_s = 0;
             if (now - last_reset_s >= 30) {
                 last_reset_s = now;
                 ch390_diag.rx_reset++;
                 _LOG_A("CH390: nothing received for %lus, restarting RX\n", (unsigned long)(now - ch390_diag.last_rx_s));
-                // Snapshot first: the restart clears exactly the state we want to see.
-                // The flash write happens later in ch390_diag_tick() (main loop),
-                // not on this task's 4 KB stack. One snapshot per stall: further
-                // restarts without a frame received in between are the same stall.
-                static uint32_t snap_frames = UINT32_MAX;
                 CH390_LOCK(emac);
-                if (!ch390_diag_pending_set && ch390_diag.rx_frames != snap_frames &&
-                    ch390_diag_snapshot_locked("rxwd", now, ch390_diag_pending, sizeof(ch390_diag_pending))) {
-                    snap_frames = ch390_diag.rx_frames;
-                    ch390_diag_pending_set = true;
-                }
-                ch390_rx_restart_locked();
+                ch390_rx_recover_locked("rxwd", now);
                 CH390_UNLOCK(emac);
             }
         }
@@ -1072,8 +1104,9 @@ esp_err_t ch390_eth_init(void) {
 // ---- Diagnostics (Clarijs) ------------------------------------------------
 // A snapshot of the chip state and the counters is written to NVS ("ethdiag"/
 // "last") so it survives a restart and shows up as `Eth Last Stall`:
-//  - why=rxwd  each time the 30 s RX watchdog restarts the receiver (taken just
-//              before the restart, which clears the interesting state);
+//  - why=zero  when the receiver is restarted because RXRDY was set for 1 s
+//              without a readable frame (taken just before the restart);
+//  - why=rxwd  when the 30 s RX watchdog restarts the receiver (same);
 //  - why=idle  once per boot when nothing was received or sent for 60 s and no
 //              watchdog snapshot was taken (e.g. a TX-side stall).
 static char ch390_diag_last_buf[CH390_DIAG_LEN] = "";
@@ -1112,13 +1145,13 @@ static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out,
     uint32_t tx_idle = ch390_diag.last_tx_s ? now - ch390_diag.last_tx_s : 0;
     snprintf(out, n,
         "why=%s up=%lu rxidle=%lu txidle=%lu INT=%d NSR=%02X ISR=%02X IMR=%02X RCR=%02X TCR=%02X ROCR=%02X WP=%02X%02X RP=%02X%02X "
-        "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu kick=%lu rst=%lu",
+        "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu kick=%lu rst=%lu zero=%lu",
         why, (unsigned long)now, (unsigned long)rx_idle, (unsigned long)tx_idle, gpio_get_level((gpio_num_t)CH390_INT),
         nsr, isr, imr, rcr, tcr, rocr, wph, wpl, rph, rpl,
         (unsigned long)ch390_diag.rx_frames, (unsigned long)ch390_diag.rx_overflow, (unsigned long)ch390_diag.rx_pkt_err,
         (unsigned long)ch390_diag.rx_bad_len, (unsigned long)ch390_diag.rx_read_fail, (unsigned long)ch390_diag.rx_nomem,
         (unsigned long)ch390_diag.tx_busy, (unsigned long)ch390_diag.busy_loops,
-        (unsigned long)ch390_diag.rx_kick, (unsigned long)ch390_diag.rx_reset);
+        (unsigned long)ch390_diag.rx_kick, (unsigned long)ch390_diag.rx_reset, (unsigned long)ch390_diag.rx_zero);
     return true;
 }
 
