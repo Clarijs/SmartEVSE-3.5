@@ -23,6 +23,12 @@ Every change is added to **Unreleased** first; at the next release that section 
   also drains the buffer when the chip reports data waiting, keeps reading after a bad frame, and
   restarts the receiver when nothing arrives for 30 s with the cable connected. New diagnostic sensors
   `Eth Rx Kick` and `Eth Rx Reset` count how often that safety net was needed.
+- **Fix: `Eth Last Stall` stayed empty when the 30 s receiver restart kicked in.** The snapshot was only
+  taken after 60 s without traffic, but the restart already brings the network back after 30 s, so a
+  stall that was caught never left a trace (seen on 17 Nov: network gone for 32 s, `Eth Rx Reset` 1,
+  `Eth Last Stall` still from the previous firmware). The chip registers and counters are now stored just
+  before each receiver restart (`why=rxwd`, once per stall), the 60 s snapshot stays for other stalls
+  (`why=idle`). The flash write happens in the main loop, not in the Ethernet task.
 - **Dashboard: "Live power" replaces the 10-minute chart.** One row House · Grid · Battery · Car with
   moving dots in the direction the energy flows (line thickness follows the power) and a status line in
   plain words, e.g. "The home battery helps the car with 1.29 kW" or "the battery stays out of the car".

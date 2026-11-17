@@ -139,6 +139,12 @@ static volatile bool s_force_link_down = false;
 #define CH390_LOCK(emac)   xSemaphoreTake((emac)->spi_lock, portMAX_DELAY)
 #define CH390_UNLOCK(emac) xSemaphoreGive((emac)->spi_lock)
 
+// Stall snapshot (diagnostics, see the end of this file)
+#define CH390_DIAG_LEN 240
+static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out, size_t n);
+static char ch390_diag_pending[CH390_DIAG_LEN];      // filled by the RX task, written to NVS by ch390_diag_tick()
+static volatile bool ch390_diag_pending_set = false;
+
 // Internal stop/start helpers — caller must hold spi_lock.
 static void ch390_stop_locked(emac_ch390_t *emac) {
     ch390_reg_write(CH390_IMR, 0x00);
@@ -349,7 +355,17 @@ static void ch390_rx_task(void *arg) {
                 last_reset_s = now;
                 ch390_diag.rx_reset++;
                 _LOG_A("CH390: nothing received for %lus, restarting RX\n", (unsigned long)(now - ch390_diag.last_rx_s));
+                // Snapshot first: the restart clears exactly the state we want to see.
+                // The flash write happens later in ch390_diag_tick() (main loop),
+                // not on this task's 4 KB stack. One snapshot per stall: further
+                // restarts without a frame received in between are the same stall.
+                static uint32_t snap_frames = UINT32_MAX;
                 CH390_LOCK(emac);
+                if (!ch390_diag_pending_set && ch390_diag.rx_frames != snap_frames &&
+                    ch390_diag_snapshot_locked("rxwd", now, ch390_diag_pending, sizeof(ch390_diag_pending))) {
+                    snap_frames = ch390_diag.rx_frames;
+                    ch390_diag_pending_set = true;
+                }
                 ch390_rx_restart_locked();
                 CH390_UNLOCK(emac);
             }
@@ -1054,10 +1070,13 @@ esp_err_t ch390_eth_init(void) {
 
 
 // ---- Diagnostics (Clarijs) ------------------------------------------------
-// When nothing has been received for 60 s while the link is up, the chip state
-// and the counters are written once to NVS ("ethdiag"/"last"), so they survive
-// the power cycle that is needed to get the network back.
-static char ch390_diag_last_buf[220] = "";
+// A snapshot of the chip state and the counters is written to NVS ("ethdiag"/
+// "last") so it survives a restart and shows up as `Eth Last Stall`:
+//  - why=rxwd  each time the 30 s RX watchdog restarts the receiver (taken just
+//              before the restart, which clears the interesting state);
+//  - why=idle  once per boot when nothing was received or sent for 60 s and no
+//              watchdog snapshot was taken (e.g. a TX-side stall).
+static char ch390_diag_last_buf[CH390_DIAG_LEN] = "";
 static bool ch390_diag_loaded = false;
 static bool ch390_diag_stored = false;
 
@@ -1073,15 +1092,10 @@ const char *ch390_diag_last(void) {
     return ch390_diag_last_buf;
 }
 
-void ch390_diag_tick(void) {
-    if (!EthPresent || !s_emac || ch390_diag_stored) return;
-    uint32_t now = ch390_uptime_s();
-    if (!ch390_diag.last_rx_s || !ch390_diag.last_tx_s) return;           // not up yet
-    uint32_t rx_idle = now - ch390_diag.last_rx_s, tx_idle = now - ch390_diag.last_tx_s;
-    if (rx_idle < 60 && tx_idle < 60) return;
-
+// Read the chip registers and format the snapshot. Caller holds spi_lock.
+// Returns false when the cable is unplugged (not a driver stall).
+static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out, size_t n) {
     uint8_t nsr = 0, isr = 0, imr = 0, rcr = 0, tcr = 0, rocr = 0, wph = 0, wpl = 0, rph = 0, rpl = 0;
-    CH390_LOCK(s_emac);
     ch390_reg_read(CH390_NSR, &nsr);
     ch390_reg_read(CH390_ISR, &isr);
     ch390_reg_read(CH390_IMR, &imr);
@@ -1092,26 +1106,50 @@ void ch390_diag_tick(void) {
     ch390_reg_read(CH390_RWPAL, &wpl);
     ch390_reg_read(CH390_MRRH, &rph);
     ch390_reg_read(CH390_MRRL, &rpl);
-    CH390_UNLOCK(s_emac);
-    if (!(nsr & NSR_LINKST)) return;          // cable unplugged: not a driver stall
+    if (!(nsr & NSR_LINKST)) return false;
 
-    char b[sizeof(ch390_diag_last_buf)];
-    snprintf(b, sizeof(b),
-        "up=%lu rxidle=%lu txidle=%lu INT=%d NSR=%02X ISR=%02X IMR=%02X RCR=%02X TCR=%02X ROCR=%02X WP=%02X%02X RP=%02X%02X "
+    uint32_t rx_idle = ch390_diag.last_rx_s ? now - ch390_diag.last_rx_s : 0;
+    uint32_t tx_idle = ch390_diag.last_tx_s ? now - ch390_diag.last_tx_s : 0;
+    snprintf(out, n,
+        "why=%s up=%lu rxidle=%lu txidle=%lu INT=%d NSR=%02X ISR=%02X IMR=%02X RCR=%02X TCR=%02X ROCR=%02X WP=%02X%02X RP=%02X%02X "
         "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu kick=%lu rst=%lu",
-        (unsigned long)now, (unsigned long)rx_idle, (unsigned long)tx_idle, gpio_get_level((gpio_num_t)CH390_INT),
+        why, (unsigned long)now, (unsigned long)rx_idle, (unsigned long)tx_idle, gpio_get_level((gpio_num_t)CH390_INT),
         nsr, isr, imr, rcr, tcr, rocr, wph, wpl, rph, rpl,
         (unsigned long)ch390_diag.rx_frames, (unsigned long)ch390_diag.rx_overflow, (unsigned long)ch390_diag.rx_pkt_err,
         (unsigned long)ch390_diag.rx_bad_len, (unsigned long)ch390_diag.rx_read_fail, (unsigned long)ch390_diag.rx_nomem,
         (unsigned long)ch390_diag.tx_busy, (unsigned long)ch390_diag.busy_loops,
         (unsigned long)ch390_diag.rx_kick, (unsigned long)ch390_diag.rx_reset);
-    _LOG_A("CH390 stall: %s\n", b);
+    return true;
+}
+
+// Keep the snapshot in RAM and in NVS. Main loop only, not under spi_lock.
+static void ch390_diag_store(const char *snap) {
+    _LOG_A("CH390 stall: %s\n", snap);
     Preferences p;
     if (p.begin("ethdiag", false)) {
-        p.putString("last", b);
+        p.putString("last", snap);
         p.end();
     }
-    strlcpy(ch390_diag_last_buf, b, sizeof(ch390_diag_last_buf));
+    strlcpy(ch390_diag_last_buf, snap, sizeof(ch390_diag_last_buf));
     ch390_diag_loaded = true;
-    ch390_diag_stored = true;   // once per boot; the snapshot from the previous boot stays readable until then
+    ch390_diag_stored = true;   // the previous snapshot stays readable until a new one is taken
+}
+
+void ch390_diag_tick(void) {
+    if (!EthPresent || !s_emac) return;
+    if (ch390_diag_pending_set) {                 // RX watchdog snapshot waiting to be stored
+        ch390_diag_store(ch390_diag_pending);
+        ch390_diag_pending_set = false;
+        return;
+    }
+    if (ch390_diag_stored) return;
+    uint32_t now = ch390_uptime_s();
+    if (!ch390_diag.last_rx_s || !ch390_diag.last_tx_s) return;           // not up yet
+    if (now - ch390_diag.last_rx_s < 60 && now - ch390_diag.last_tx_s < 60) return;
+
+    char b[CH390_DIAG_LEN];
+    CH390_LOCK(s_emac);
+    bool have = ch390_diag_snapshot_locked("idle", now, b, sizeof(b));
+    CH390_UNLOCK(s_emac);
+    if (have) ch390_diag_store(b);
 }
