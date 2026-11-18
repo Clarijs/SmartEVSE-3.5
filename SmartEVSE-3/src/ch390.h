@@ -219,6 +219,9 @@ struct ch390_diag_t {
     uint32_t rx_kick;        // data in RX SRAM without a PR interrupt: drained anyway
     uint32_t rx_reset;       // RX path reset by the 30 s no-receive watchdog
     uint32_t rx_zero;        // RXRDY set but head byte 0x00 for 1 s -> RX restarted
+    uint32_t rx_ucast;       // received frames addressed to this MAC
+    uint32_t rx_mcast;       // received multicast frames (mDNS, SSDP, IPv6, ...)
+    uint32_t rx_bcast;       // received broadcast frames (ARP, DHCP, ...)
     uint32_t last_rx_s;      // uptime (s) of the last received frame
     uint32_t last_tx_s;      // uptime (s) of the last accepted transmit
 };

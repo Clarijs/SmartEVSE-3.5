@@ -35,6 +35,9 @@ Every change is added to **Unreleased** first; at the next release that section 
   long enough for a mains-meter communication error. When this lasts 1 s the receiver is now restarted at
   once. New diagnostic sensor `Eth Rx Zero` (REST `eth.diag.rx_zero`) counts it; the snapshot gets
   `why=zero` and a `zero=` counter. The 30 s restart stays as a last resort.
+- **Ethernet diagnostics: traffic mix.** New sensors `Eth Rx Unicast`, `Eth Rx Multicast` and `Eth Rx Broadcast`
+  (REST `eth.diag.rx_ucast` / `rx_mcast` / `rx_bcast`) count received frames by destination. The CH390D
+  accepts all multicast and broadcast; this shows how much of the ~10 frames/s is not meant for the charger.
 - **Dashboard: "Live power" replaces the 10-minute chart.** One row House · Grid · Battery · Car with
   moving dots in the direction the energy flows (line thickness follows the power) and a status line in
   plain words, e.g. "The home battery helps the car with 1.29 kW" or "the battery stays out of the car".

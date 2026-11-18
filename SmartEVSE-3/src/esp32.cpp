@@ -1021,6 +1021,9 @@ void SetupMQTTClient() {
         MQTTclient.announce("Eth Rx Kick", "sensor", cnt);
         MQTTclient.announce("Eth Rx Reset", "sensor", cnt);
         MQTTclient.announce("Eth Rx Zero", "sensor", cnt);
+        MQTTclient.announce("Eth Rx Unicast", "sensor", cnt);
+        MQTTclient.announce("Eth Rx Multicast", "sensor", cnt);
+        MQTTclient.announce("Eth Rx Broadcast", "sensor", cnt);
         MQTTclient.announce("Eth Last Stall", "sensor", ", \"entity_category\":\"diagnostic\"");
     }
     MQTTclient.announce("ESP Uptime", "sensor",
@@ -1217,6 +1220,9 @@ void mqttPublishData() {
             mqPubI("/EthRxKick", (int32_t)ch390_diag.rx_kick, false, 0);
             mqPubI("/EthRxReset", (int32_t)ch390_diag.rx_reset, false, 0);
             mqPubI("/EthRxZero", (int32_t)ch390_diag.rx_zero, false, 0);
+            mqPubI("/EthRxUnicast", (int32_t)ch390_diag.rx_ucast, false, 0);
+            mqPubI("/EthRxMulticast", (int32_t)ch390_diag.rx_mcast, false, 0);
+            mqPubI("/EthRxBroadcast", (int32_t)ch390_diag.rx_bcast, false, 0);
             const char *last = ch390_diag_last();
             mqPub("/EthLastStall", last[0] ? last : "none", strlen(last[0] ? last : "none"), true, 0);
         }
@@ -1798,6 +1804,9 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
             doc["eth"]["diag"]["rx_kick"] = ch390_diag.rx_kick;
             doc["eth"]["diag"]["rx_reset"] = ch390_diag.rx_reset;
             doc["eth"]["diag"]["rx_zero"] = ch390_diag.rx_zero;
+            doc["eth"]["diag"]["rx_ucast"] = ch390_diag.rx_ucast;
+            doc["eth"]["diag"]["rx_mcast"] = ch390_diag.rx_mcast;
+            doc["eth"]["diag"]["rx_bcast"] = ch390_diag.rx_bcast;
             doc["eth"]["diag"]["last_stall"] = ch390_diag_last();
         }
         if (EthHasIP) {

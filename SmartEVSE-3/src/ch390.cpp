@@ -349,6 +349,16 @@ static void ch390_rx_task(void *arg) {
                     }
                     ch390_diag.rx_frames++;
                     ch390_diag.last_rx_s = ch390_uptime_s();
+                    // Traffic mix by destination MAC (diagnostics)
+                    {
+                        const uint8_t *da = emac->rx_buffer;
+                        if (frame_len >= 6 && (da[0] & 0x01)) {
+                            if ((da[0] & da[1] & da[2] & da[3] & da[4] & da[5]) == 0xFF) ch390_diag.rx_bcast++;
+                            else ch390_diag.rx_mcast++;
+                        } else {
+                            ch390_diag.rx_ucast++;
+                        }
+                    }
                     /* pass the buffer to stack (e.g. TCP/IP layer) */
                     memcpy(buffer, emac->rx_buffer, frame_len);
                     emac->eth->stack_input(emac->eth, buffer, frame_len);
