@@ -1024,6 +1024,9 @@ void SetupMQTTClient() {
         MQTTclient.announce("Eth Rx Unicast", "sensor", cnt);
         MQTTclient.announce("Eth Rx Multicast", "sensor", cnt);
         MQTTclient.announce("Eth Rx Broadcast", "sensor", cnt);
+        MQTTclient.announce("Eth Rx Broadcast Arp", "sensor", cnt);
+        MQTTclient.announce("Eth Top Broadcast", "sensor", ", \"entity_category\":\"diagnostic\"");
+        MQTTclient.announce("Eth Top Multicast", "sensor", ", \"entity_category\":\"diagnostic\"");
         MQTTclient.announce("Eth Last Stall", "sensor", ", \"entity_category\":\"diagnostic\"");
     }
     MQTTclient.announce("ESP Uptime", "sensor",
@@ -1223,6 +1226,14 @@ void mqttPublishData() {
             mqPubI("/EthRxUnicast", (int32_t)ch390_diag.rx_ucast, false, 0);
             mqPubI("/EthRxMulticast", (int32_t)ch390_diag.rx_mcast, false, 0);
             mqPubI("/EthRxBroadcast", (int32_t)ch390_diag.rx_bcast, false, 0);
+            mqPubI("/EthRxBroadcastArp", (int32_t)ch390_diag.rx_bcast_arp, false, 0);
+            {
+                char top[100];
+                ch390_diag_top(false, top, sizeof(top));
+                mqPub("/EthTopBroadcast", top[0] ? top : "none", strlen(top[0] ? top : "none"), false, 0);
+                ch390_diag_top(true, top, sizeof(top));
+                mqPub("/EthTopMulticast", top[0] ? top : "none", strlen(top[0] ? top : "none"), false, 0);
+            }
             const char *last = ch390_diag_last();
             mqPub("/EthLastStall", last[0] ? last : "none", strlen(last[0] ? last : "none"), true, 0);
         }
@@ -1807,6 +1818,14 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
             doc["eth"]["diag"]["rx_ucast"] = ch390_diag.rx_ucast;
             doc["eth"]["diag"]["rx_mcast"] = ch390_diag.rx_mcast;
             doc["eth"]["diag"]["rx_bcast"] = ch390_diag.rx_bcast;
+            doc["eth"]["diag"]["rx_bcast_arp"] = ch390_diag.rx_bcast_arp;
+            {
+                char top[100];
+                ch390_diag_top(false, top, sizeof(top));
+                doc["eth"]["diag"]["top_bcast"] = String(top);
+                ch390_diag_top(true, top, sizeof(top));
+                doc["eth"]["diag"]["top_mcast"] = String(top);
+            }
             doc["eth"]["diag"]["last_stall"] = ch390_diag_last();
         }
         if (EthHasIP) {

@@ -38,6 +38,9 @@ Every change is added to **Unreleased** first; at the next release that section 
 - **Ethernet diagnostics: traffic mix.** New sensors `Eth Rx Unicast`, `Eth Rx Multicast` and `Eth Rx Broadcast`
   (REST `eth.diag.rx_ucast` / `rx_mcast` / `rx_bcast`) count received frames by destination. The CH390D
   accepts all multicast and broadcast; this shows how much of the ~10 frames/s is not meant for the charger.
+  `Eth Rx Broadcast Arp` counts the ARP part of the broadcast, and `Eth Top Broadcast` / `Eth Top Multicast`
+  (REST `top_bcast` / `top_mcast`) show the three senders (MAC address = frames since boot) that send the most,
+  so the source can be looked up in the router or access-point client list.
 - **Dashboard: "Live power" replaces the 10-minute chart.** One row House · Grid · Battery · Car with
   moving dots in the direction the energy flows (line thickness follows the power) and a status line in
   plain words, e.g. "The home battery helps the car with 1.29 kW" or "the battery stays out of the car".

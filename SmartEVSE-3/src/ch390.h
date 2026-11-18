@@ -222,12 +222,16 @@ struct ch390_diag_t {
     uint32_t rx_ucast;       // received frames addressed to this MAC
     uint32_t rx_mcast;       // received multicast frames (mDNS, SSDP, IPv6, ...)
     uint32_t rx_bcast;       // received broadcast frames (ARP, DHCP, ...)
+    uint32_t rx_bcast_arp;   // ... of which ARP
     uint32_t last_rx_s;      // uptime (s) of the last received frame
     uint32_t last_tx_s;      // uptime (s) of the last accepted transmit
 };
 extern volatile ch390_diag_t ch390_diag;
 void ch390_diag_tick(void);              // call once per second
 const char *ch390_diag_last(void);       // snapshot stored at the last stall ("" = none)
+// Top senders of broadcast (mcast=false) or multicast (mcast=true) frames since boot,
+// as "AA:BB:CC:DD:EE:FF=123 ..." (largest first, at most 3; "" = none yet).
+void ch390_diag_top(bool mcast, char *out, size_t n);
 
 // Runtime flags
 extern bool EthPresent;     // true if CH390D chip was detected at boot
