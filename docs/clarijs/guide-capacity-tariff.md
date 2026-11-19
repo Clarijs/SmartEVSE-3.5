@@ -155,7 +155,7 @@ the charger keeps its own value.
 | `MAINS MET` | **API** (P1 reader over MQTT) or **Homewizrd** (HomeWizard P1) | LCD menu |
 | `MODE` | **Smart** | LCD, web, MQTT |
 | `CAP MODE` | **Peak** | web interface → All settings → Capacity, or LCD |
-| Margin | **0–55 W** with the measured voltage (see the battery guide) | All settings → Capacity, `Set/CapacityMargin`, REST `capacity_margin` |
+| Margin | **20–55 W** with the measured voltage (minimum 20 W; with a battery: more than peak − battery threshold, see the battery guide) | All settings → Capacity, `Set/CapacityMargin`, REST `capacity_margin` |
 | `CONTACT 2` | **Always Off** for a single-phase installation | LCD menu |
 | Mains meter timeout | **20–30 s** for a P1 reader on Wi-Fi (API only) | `Set/MainsMeterTimeout` |
 | `CAP STOP` | **without a home battery: Off (0) or 1 min**; with a peak-shaving battery: up to 5 min | LCD menu, All settings → Capacity |
@@ -170,8 +170,8 @@ the measured voltage.
 - At the start of a month the peak is 2500 W (the minimum). It rises automatically when the meter
   reports a higher quarter.
 - The car starts at the current that is actually free, not at full current.
-- Night charging settles about 50–110 W under the peak. Short peaks in the house (kettle) are
-  corrected within a second or two.
+- Charging settles about 45–70 W under the peak with margin 20 W (measured: four quarters in a row
+  at 2745–2764 W with a 2812 W peak). Short peaks in the house (kettle) are corrected within a second or two.
 
 ## 6. Without a home battery: set CAP STOP short
 
@@ -180,7 +180,7 @@ when even 6 A does not fit under the ceiling, before it stops charging. During t
 **above** your peak. With a peak-shaving home battery the battery covers those minutes; **without a
 battery they count fully in the 15-minute average**.
 
-Example, single phase, monthly peak 3000 W, margin 0. The car charges at 2500 W with 450 W in the
+Example, single phase, monthly peak 3000 W, margin 20 W. The car charges at 2500 W with 450 W in the
 house. Then the house goes to 2500 W for 6 minutes (oven + hob):
 
 | | What happens | 15-minute average |

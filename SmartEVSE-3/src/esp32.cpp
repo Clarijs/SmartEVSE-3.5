@@ -582,7 +582,7 @@ void mqtt_receive_callback(const String topic, const String payload) {
         // margin in W under the capacity ceiling (Flanders, Interval, Peak); stored
         int32_t margin = payload.toInt();
         if (margin >= 0 && margin <= 1000) {
-            CapacityMargin = margin;
+            CapacityMargin = margin < CapacityMinMargin ? CapacityMinMargin : margin;   // lower values are raised to the minimum
             shadowPrefs.markUShort("CapMargin", &CapacityMargin);
         }
     } else if (topic == MQTTprefix + "/Set/CapacityPeak" && LoadBl < 2) {
@@ -1447,6 +1447,7 @@ void read_settings() {
         MaxSumMainsTime = preferences.getUShort("MaxSumMainsTime", MAX_SUMMAINSTIME);
         CapacityMargin = preferences.getUShort("CapMargin", CapacitySafety);
         if (CapacityMargin > 1000) CapacityMargin = CapacitySafety;
+        if (CapacityMargin < CapacityMinMargin) CapacityMargin = CapacityMinMargin;  // stored before the minimum existed
         MainsApiTimeout = preferences.getUChar("ApiTimeout", COMM_TIMEOUT);
         if (MainsApiTimeout < COMM_TIMEOUT || MainsApiTimeout > 120) MainsApiTimeout = COMM_TIMEOUT;
         HomeBatteryOffset = preferences.getUShort("BatOffset", 0);
@@ -2067,7 +2068,7 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         if(request->hasParam("capacity_margin")) {
             int margin = request->getParam("capacity_margin")->value().toInt();
             if (margin >= 0 && margin <= 1000 && LoadBl < 2) {
-                CapacityMargin = margin;
+                CapacityMargin = margin < CapacityMinMargin ? CapacityMinMargin : margin;   // lower values are raised to the minimum
                 shadowPrefs.markUShort("CapMargin", &CapacityMargin);
                 doc["capacity_margin"] = CapacityMargin;
             } else {

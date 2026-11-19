@@ -34,7 +34,7 @@ Set topics (`<prefix>/Set/…`):
 | `MainsMeter` | `L1:L2:L3`, `L1:L2:L3:W:Wh` or `L1:L2:L3:W:Wh:V` (V in 0.1 V) |
 | `CapacityPeak` | monthly peak in W (only raises, ≥ 2500) |
 | `CurrentMaxSumMains` | A, one decimal allowed (`10.4`) |
-| `CapacityMargin` | W (0–1000) |
+| `CapacityMargin` | W (20–1000; lower values are raised to 20) |
 | `HomeBatteryPower` | W, optional `:SoC` in % |
 | `HomeBatteryPeakShavingSoC` | % (0 = off): below it a discharge counts as import in Smart mode |
 | `HomeBatteryOffset` | W |

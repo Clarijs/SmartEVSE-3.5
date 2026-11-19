@@ -129,6 +129,8 @@ uint32_t CapacityMonthIndex(const struct tm *t);                                
 void storeCapacityPeak(void);                                                   // persist MainsMeter monthly capacity peak (esp32.cpp)
 
 #define CapacitySafety 100                                                      // default margin (W) under the capacity ceiling
+#define CapacityMinMargin 20                                                    // lowest allowed margin (W): Smart mode settles right at the
+                                                                                // ceiling, 20 W (~0.1 A) covers the 0.1 A rounding and EV lag
 #define AssumedVoltage 230                                                      // used when no (recent) voltage measurement is available
 extern uint8_t MainsApiTimeout;                                                 // seconds without an API mains measurement before CT_NOCOMM
 extern uint16_t CapacityMargin;                                                 // margin (W) under the capacity ceiling, default CapacitySafety

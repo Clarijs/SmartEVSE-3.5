@@ -82,8 +82,8 @@ input[type=range]{accent-color:var(--acc)}
           </select>
         </div>
         <div class="fields hidden" id="marginSection" style="margin-top:10px">
-          <label class="f" title="How many watts to stay under the power limit / monthly peak">Margin (W)
-            <input type="number" id="capacity_margin" min="0" max="1000" step="5" style="width:90px">
+          <label class="f" title="How many watts to stay under the power limit / monthly peak. Minimum 20 W. With a peak-shaving home battery: more than the difference between your monthly peak and the battery's threshold.">Margin (W)
+            <input type="number" id="capacity_margin" min="20" max="1000" step="5" style="width:90px">
           </label>
           <span class="sub" id="capacityInfo"></span>
         </div>
@@ -320,8 +320,9 @@ $("current_max_sum_mains").onchange = (e) => {
 };
 $("capacity_margin").onchange = (e) => {
   const v = parseInt(e.target.value);
-  if (isNaN(v) || v < 0 || v > 1000) { toast("Value must be between 0 and 1000"); load(); return; }
-  postSettings(new URLSearchParams({ capacity_margin: v }));
+  if (isNaN(v) || v < 0 || v > 1000) { toast("Value must be between 20 and 1000"); load(); return; }
+  if (v < 20) toast("Minimum margin is 20 W");
+  postSettings(new URLSearchParams({ capacity_margin: Math.max(v, 20) }));
 };
 $("max_sum_mains_time").onchange = (e) => {
   const v = parseInt(e.target.value);

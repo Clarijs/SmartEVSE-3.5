@@ -26,7 +26,7 @@ messages. Gaps of 5–20 s followed by a burst of messages = Wi-Fi delay at the 
 | Situation | Cause | Fix |
 |---|---|---|
 | At the start of each quarter, with `CAP MODE = Flanders` | Flanders allows more than the peak when the quarter started quiet; the battery shaves it | use **mode Peak** |
-| The battery holds the grid exactly at its threshold while the car charges | charger ceiling too close to the battery threshold | battery threshold closer to the peak than the charger ceiling (e.g. battery peak − 10 W, charger margin 0–55 W), measured voltage on |
+| The battery holds the grid exactly at its threshold while the car charges | charger ceiling too close to the battery threshold | battery threshold closer to the peak than the charger ceiling (e.g. battery peak − 10 W, charger margin 20–55 W: the margin must be larger than peak − battery threshold), measured voltage on |
 | In daytime, grid at 0 W, battery discharging | battery covers house and car (self-consumption) | mode Solar, or block the battery's discharge while charging in Home Assistant (see the [battery guide](guide-home-battery.md)) |
 | One night per year, battery goes to ~0 % | battery SOH calibration (e.g. Huawei): reserve is ignored | nothing to fix; the battery recharges afterwards |
 | The battery goes below its peak-shaving level (e.g. 15 %) while the car charges | battery still in self-consumption below that level (e.g. after a calibration) | set **Peak Shaving SoC** to that level and send the SoC with the battery power (`W:SoC`) |
@@ -45,9 +45,10 @@ still happens, check that an **EV meter** is configured: the headroom cap uses i
 
 ## The mains stays ~100 W under the limit
 
-Most cars draw a little less than the setpoint. This firmware allows up to 1 A of that under-draw on
-top of the headroom, once the car follows the setpoint. With a larger margin you also get more room:
-check `capacity_margin`.
+Older builds stayed up to 0.3 A under the limit (the current rose by 1/4 of the headroom, which is 0 for
+0.1–0.3 A); it now rises by at least 0.1 A. Most cars also draw a little less than the setpoint: this
+firmware allows up to 1 A of that under-draw on top of the headroom, once the car follows the setpoint.
+What remains is the margin (`capacity_margin`, minimum 20 W) and up to 0.1 A of rounding.
 
 ## Monthly peak wrong after the first of the month
 
