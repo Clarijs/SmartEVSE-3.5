@@ -1004,7 +1004,9 @@ void CalcBalancedCurrent(char mod) {
             if (phasesLastUpdateFlag) {                                         // only increase or decrease current if measurements are updated
                 _LOG_V("phaseLastUpdate=%u.\n", phasesLastUpdate);
                 if (Idifference > 0) {
-                    if (Mode == MODE_SMART) IsetBalanced += (Idifference / 4);  // increase with 1/4th of difference (slowly increase current)
+                    // increase with 1/4th of the difference (slowly increase current), but at least 0.1A:
+                    // with integer dA a difference of 0.1-0.3A gave 0, so the EV stayed up to 0.3A below the limit
+                    if (Mode == MODE_SMART) IsetBalanced += max(1, Idifference / 4);
                 }                                                               // in Solar mode we compute increase of current later on!
                 else
                     IsetBalanced += Idifference;                                // last PWM setting + difference (immediately decrease current) (Smart and Solar mode)

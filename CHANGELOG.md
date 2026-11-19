@@ -7,6 +7,11 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
+- **Smart mode: no longer stays up to 0.3 A below the limit.** When there is room, the charge current
+  rises by 1/4 of the free headroom per mains measurement. Currents are whole tenths of an ampere, so with
+  0.1-0.3 A of headroom that quarter was 0 and the current never rose further: up to ~70 W unused under a
+  capacity ceiling (median ~80 W below the monthly peak over 129 charging quarters). It now rises by at
+  least 0.1 A while there is room; going down is still immediate.
 - **MQTT: publish only what changed.** The status topics are still checked every 10 seconds, but a topic
   is only sent again when its value changed, plus once a minute as a heartbeat. After a (re)connect
   everything is sent once. Far fewer messages for the broker and Home Assistant; values that change
