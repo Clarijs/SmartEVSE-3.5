@@ -62,8 +62,11 @@ The digital meter reports the official value on its P1 port (OBIS `1-0:1.6.0`).
 
 - New MQTT topic **`<prefix>/Set/CapacityPeak`** (W) and REST parameter **`capacity_peak`**.
   - Only accepted when ≥ 2500 W and when the SmartEVSE knows the date and time.
-  - Can only **raise** the peak of the current month, never lower it, exactly like the automatic
-    adjustment when a 15 minute average breaks the ceiling. It is a sync, not a static setting.
+  - The **meter is the reference**: its value is taken over exactly, also when it is lower than the
+    peak the SmartEVSE calculated itself (that calculation counts in whole Wh = 4 W steps with its own
+    clock, so it can end a few W higher). A lower peak is always the safe side. Without a meter value
+    the SmartEVSE keeps raising the peak itself when a 15 minute average breaks it.
+  - Ignored in the first quarter of a month (the meter may still report last month's peak).
 - The peak is **stored together with its month** (`CapPeakW`, `CapPeakMonth` in preferences):
   - a reboot in the same month keeps the peak,
   - a new month still starts at 2500 W.
@@ -186,7 +189,7 @@ MaxSumMains = (monthly peak − margin) ÷ measured voltage      in 0.1 A, on ev
 - **No 15 minute energy budget** (unlike Flanders): the limit is stable, and the instantaneous
   mains power stays below the threshold of a home battery that does peak shaving.
 - Same monthly logic as Flanders: starts at 2500 W each month, is raised automatically when a
-  15 minute average breaks it, and can be synced with `/Set/CapacityPeak`.
+  15 minute average breaks it, and follows the meter's own value via `/Set/CapacityPeak`.
 
 **Flanders or Peak?**
 
@@ -382,7 +385,7 @@ Night charging of a Peugeot plug-in hybrid (±10 kWh), monthly peak 2755 W:
 |---|---|---|
 | `<prefix>/Set/MainsMeter` | → EVSE | `L1:L2:L3[:W:Wh[:V]]`, **new optional V in 0.1 V** |
 | `<prefix>/Set/CurrentMaxSumMains` | → EVSE | amps, **now with one decimal** (`11.6`) |
-| `<prefix>/Set/CapacityPeak` | → EVSE | monthly peak in W (≥ 2500, only raises) |
+| `<prefix>/Set/CapacityPeak` | → EVSE | monthly peak in W (≥ 2500; the meter value is taken over exactly) |
 | `<prefix>/Set/CapacityMargin` | → EVSE | margin in W (0–1000) |
 | `<prefix>/MaxSumMains` | EVSE → | amps with one decimal |
 | `<prefix>/CapacityPeak` | EVSE → | monthly peak in W (Flanders / Peak) |
@@ -398,7 +401,7 @@ Night charging of a Peugeot plug-in hybrid (±10 kWh), monthly peak 2755 W:
 |---|---|
 | `current_max_sum_mains` | amps, now with one decimal, stored |
 | `capacity_mode` | 0 Disabled, 1 Fixed, 2 Interval, 3 Flanders, **4 Peak** |
-| `capacity_peak` | monthly peak in W (only raises) |
+| `capacity_peak` | monthly peak in W (≥ 2500, taken over exactly) |
 | `capacity_margin` | margin in W |
 | `home_battery_offset` | battery offset in W |
 | `home_battery_peak_shaving_soc` | peak-shaving SoC in % (0 = off) |

@@ -145,23 +145,6 @@ static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out,
 static char ch390_diag_pending[CH390_DIAG_LEN];      // filled by the RX task, written to NVS by ch390_diag_tick()
 static volatile bool ch390_diag_pending_set = false;
 
-// Top talkers for broadcast / multicast (diagnostics). Small "space saving"
-// table: an unknown sender replaces the entry with the lowest count and
-// inherits that count, so heavy senders stay in the table.
-#define CH390_TOP_SLOTS 8
-struct ch390_top_t { uint8_t mac[6]; uint32_t cnt; };
-static ch390_top_t ch390_top_b[CH390_TOP_SLOTS], ch390_top_m[CH390_TOP_SLOTS];
-
-static void ch390_top_count(ch390_top_t *t, const uint8_t *src) {
-    int low = 0;
-    for (int i = 0; i < CH390_TOP_SLOTS; i++) {
-        if (t[i].cnt && memcmp(t[i].mac, src, 6) == 0) { t[i].cnt++; return; }
-        if (t[i].cnt < t[low].cnt) low = i;
-    }
-    memcpy(t[low].mac, src, 6);
-    t[low].cnt++;
-}
-
 // Internal stop/start helpers — caller must hold spi_lock.
 static void ch390_stop_locked(emac_ch390_t *emac) {
     ch390_reg_write(CH390_IMR, 0x00);
@@ -366,22 +349,6 @@ static void ch390_rx_task(void *arg) {
                     }
                     ch390_diag.rx_frames++;
                     ch390_diag.last_rx_s = ch390_uptime_s();
-                    // Traffic mix by destination MAC (diagnostics)
-                    {
-                        const uint8_t *da = emac->rx_buffer;
-                        if (frame_len >= 14 && (da[0] & 0x01)) {
-                            if ((da[0] & da[1] & da[2] & da[3] & da[4] & da[5]) == 0xFF) {
-                                ch390_diag.rx_bcast++;
-                                if (da[12] == 0x08 && da[13] == 0x06) ch390_diag.rx_bcast_arp++;
-                                ch390_top_count(ch390_top_b, da + 6);
-                            } else {
-                                ch390_diag.rx_mcast++;
-                                ch390_top_count(ch390_top_m, da + 6);
-                            }
-                        } else {
-                            ch390_diag.rx_ucast++;
-                        }
-                    }
                     /* pass the buffer to stack (e.g. TCP/IP layer) */
                     memcpy(buffer, emac->rx_buffer, frame_len);
                     emac->eth->stack_input(emac->eth, buffer, frame_len);
@@ -1218,21 +1185,4 @@ void ch390_diag_tick(void) {
     bool have = ch390_diag_snapshot_locked("idle", now, b, sizeof(b));
     CH390_UNLOCK(s_emac);
     if (have) ch390_diag_store(b);
-}
-
-void ch390_diag_top(bool mcast, char *out, size_t n) {
-    ch390_top_t t[CH390_TOP_SLOTS];
-    memcpy(t, mcast ? ch390_top_m : ch390_top_b, sizeof(t));   // snapshot; the RX task keeps counting
-    size_t len = 0;
-    out[0] = '\0';
-    for (int k = 0; k < 3; k++) {
-        int best = -1;
-        for (int i = 0; i < CH390_TOP_SLOTS; i++)
-            if (t[i].cnt && (best < 0 || t[i].cnt > t[best].cnt)) best = i;
-        if (best < 0 || len >= n) break;
-        len += snprintf(out + len, n - len, "%s%02X:%02X:%02X:%02X:%02X:%02X=%lu", k ? " " : "",
-                        t[best].mac[0], t[best].mac[1], t[best].mac[2], t[best].mac[3], t[best].mac[4], t[best].mac[5],
-                        (unsigned long)t[best].cnt);
-        t[best].cnt = 0;
-    }
 }

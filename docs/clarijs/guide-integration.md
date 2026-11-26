@@ -32,7 +32,7 @@ Set topics (`<prefix>/Set/…`):
 | Topic | Payload |
 |---|---|
 | `MainsMeter` | `L1:L2:L3`, `L1:L2:L3:W:Wh` or `L1:L2:L3:W:Wh:V` (V in 0.1 V) |
-| `CapacityPeak` | monthly peak in W (only raises, ≥ 2500) |
+| `CapacityPeak` | monthly peak in W (≥ 2500, taken over exactly: the meter is the reference) |
 | `CurrentMaxSumMains` | A, one decimal allowed (`10.4`) |
 | `CapacityMargin` | W (20–1000; lower values are raised to 20) |
 | `HomeBatteryPower` | W, optional `:SoC` in % |

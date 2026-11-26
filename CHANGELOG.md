@@ -7,6 +7,12 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
+- **Monthly peak: the meter is the reference.** A monthly peak received from the meter (`/Set/CapacityPeak`,
+  REST `capacity_peak`, HomeWizard P1) is now taken over exactly, also when it is lower than the peak the
+  SmartEVSE calculated itself. That own calculation uses the energy counter in whole Wh (4 W steps per
+  quarter) and its own clock, so it could end a few W higher and then stayed there (seen: 2812 W on the
+  SmartEVSE, 2811 W on the meter). A lower peak is always the safe side. Still refused: values below
+  2500 W, and anything in the first quarter of a month. Without a meter value the own calculation stays.
 - **Smart mode: no longer stays up to 0.3 A below the limit.** When there is room, the charge current
   rises by 1/4 of the free headroom per mains measurement. Currents are whole tenths of an ampere, so with
   0.1-0.3 A of headroom that quarter was 0 and the current never rose further: up to ~70 W unused under a
@@ -45,12 +51,11 @@ Every change is added to **Unreleased** first; at the next release that section 
   long enough for a mains-meter communication error. When this lasts 1 s the receiver is now restarted at
   once. New diagnostic sensor `Eth Rx Zero` (REST `eth.diag.rx_zero`) counts it; the snapshot gets
   `why=zero` and a `zero=` counter. The 30 s restart stays as a last resort.
-- **Ethernet diagnostics: traffic mix.** New sensors `Eth Rx Unicast`, `Eth Rx Multicast` and `Eth Rx Broadcast`
-  (REST `eth.diag.rx_ucast` / `rx_mcast` / `rx_bcast`) count received frames by destination. The CH390D
-  accepts all multicast and broadcast; this shows how much of the ~10 frames/s is not meant for the charger.
-  `Eth Rx Broadcast Arp` counts the ARP part of the broadcast, and `Eth Top Broadcast` / `Eth Top Multicast`
-  (REST `top_bcast` / `top_mcast`) show the three senders (MAC address = frames since boot) that send the most,
-  so the source can be looked up in the router or access-point client list.
+- **Ethernet: test counters removed.** The traffic-mix sensors of the test builds (unicast / multicast /
+  broadcast, ARP, top senders) have done their job: the traffic was normal (~7 unicast, ~1.5 multicast,
+  ~1 broadcast frames/s after turning off Loop Prevention on TP-Link Easy Smart switches) and does not
+  explain the stalls. Their Home Assistant entities are removed automatically. The fixes and the basic
+  diagnostics (`Eth Rx Overflow/Resync/Kick/Reset/Zero`, `Eth Last Stall`) stay.
 - **Dashboard: "Live power" replaces the 10-minute chart.** One row House · Grid · Battery · Car with
   moving dots in the direction the energy flows (line thickness follows the power) and a status line in
   plain words, e.g. "The home battery helps the car with 1.29 kW" or "the battery stays out of the car".

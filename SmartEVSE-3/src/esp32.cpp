@@ -88,12 +88,14 @@ void storeCapacityPeak(void) {
     shadowPrefs.markULong("CapPeakMonth", &MainsMeter.Peak_Month_Index);
 }
 
-// Sync the monthly capacity peak (W) with an external source (MQTT / REST), e.g. the official
-// "maximum demand running month" of the digital meter.
-// This is not a static setting: like the automatic adjustment in UpdateCapacity(), it can only
-// RAISE the peak of the current month, never lower it. A new month still starts at CapacityMinimumPower.
-// Returns false when the value is invalid or the time is not known yet; a value that is not higher
-// than the current peak is valid but leaves the peak unchanged.
+// Sync the monthly capacity peak (W) with an external source (MQTT / REST / HomeWizard), e.g. the
+// official "maximum demand running month" of the digital meter (OBIS 1-0:1.6.0).
+// The meter is the reference: its value is taken over exactly, also when it is LOWER than the peak
+// the SmartEVSE calculated itself (that calculation uses whole Wh = 4 W steps and its own clock, so it
+// can end up a few W higher). A lower peak is always the safe side. The own calculation in
+// UpdateCapacity() stays as the fallback for installations without a meter value.
+// A new month still starts at CapacityMinimumPower; values below it are refused.
+// Returns false when the value is invalid or the time is not known yet.
 bool setCapacityPeak(int32_t RequestedPeak) {
     if (RequestedPeak < CapacityMinimumPower || RequestedPeak > 100000) return false;
     time_t now = time(NULL);
@@ -108,9 +110,9 @@ bool setCapacityPeak(int32_t RequestedPeak) {
     // In the first quarter of a month the meter can still report the peak of the previous month
     // (clock difference, publish interval); a real peak of the new month only exists after 00:15.
     if (t->tm_mday == 1 && t->tm_hour == 0 && t->tm_min < 15) return true;
-    if (RequestedPeak > MainsMeter.Peak_Period_Power_Month) {               // only raise, never lower
+    if (RequestedPeak != (int32_t)MainsMeter.Peak_Period_Power_Month) {     // the meter is the reference
+        _LOG_A("Capacity peak of this month set to %iW (was %uW).\n", RequestedPeak, (unsigned)MainsMeter.Peak_Period_Power_Month);
         MainsMeter.Peak_Period_Power_Month = RequestedPeak;
-        _LOG_A("Capacity peak of this month raised to %iW.\n", RequestedPeak);
     }
     storeCapacityPeak();
     return true;
@@ -1021,12 +1023,12 @@ void SetupMQTTClient() {
         MQTTclient.announce("Eth Rx Kick", "sensor", cnt);
         MQTTclient.announce("Eth Rx Reset", "sensor", cnt);
         MQTTclient.announce("Eth Rx Zero", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Unicast", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Multicast", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Broadcast", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Broadcast Arp", "sensor", cnt);
-        MQTTclient.announce("Eth Top Broadcast", "sensor", ", \"entity_category\":\"diagnostic\"");
-        MQTTclient.announce("Eth Top Multicast", "sensor", ", \"entity_category\":\"diagnostic\"");
+        // Traffic-mix sensors from test builds (Nov 2026): remove their retained discovery configs
+        for (const char *old : {"EthRxUnicast", "EthRxMulticast", "EthRxBroadcast", "EthRxBroadcastArp", "EthTopBroadcast", "EthTopMulticast"}) {
+            char t[160];
+            snprintf(t, sizeof(t), "homeassistant/sensor/%s-%s/config", MQTTprefix.c_str(), old);
+            MQTTclient.publish(t, "", 0, true, 0);
+        }
         MQTTclient.announce("Eth Last Stall", "sensor", ", \"entity_category\":\"diagnostic\"");
     }
     MQTTclient.announce("ESP Uptime", "sensor",
@@ -1223,17 +1225,6 @@ void mqttPublishData() {
             mqPubI("/EthRxKick", (int32_t)ch390_diag.rx_kick, false, 0);
             mqPubI("/EthRxReset", (int32_t)ch390_diag.rx_reset, false, 0);
             mqPubI("/EthRxZero", (int32_t)ch390_diag.rx_zero, false, 0);
-            mqPubI("/EthRxUnicast", (int32_t)ch390_diag.rx_ucast, false, 0);
-            mqPubI("/EthRxMulticast", (int32_t)ch390_diag.rx_mcast, false, 0);
-            mqPubI("/EthRxBroadcast", (int32_t)ch390_diag.rx_bcast, false, 0);
-            mqPubI("/EthRxBroadcastArp", (int32_t)ch390_diag.rx_bcast_arp, false, 0);
-            {
-                char top[100];
-                ch390_diag_top(false, top, sizeof(top));
-                mqPub("/EthTopBroadcast", top[0] ? top : "none", strlen(top[0] ? top : "none"), false, 0);
-                ch390_diag_top(true, top, sizeof(top));
-                mqPub("/EthTopMulticast", top[0] ? top : "none", strlen(top[0] ? top : "none"), false, 0);
-            }
             const char *last = ch390_diag_last();
             mqPub("/EthLastStall", last[0] ? last : "none", strlen(last[0] ? last : "none"), true, 0);
         }
@@ -1816,17 +1807,6 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
             doc["eth"]["diag"]["rx_kick"] = ch390_diag.rx_kick;
             doc["eth"]["diag"]["rx_reset"] = ch390_diag.rx_reset;
             doc["eth"]["diag"]["rx_zero"] = ch390_diag.rx_zero;
-            doc["eth"]["diag"]["rx_ucast"] = ch390_diag.rx_ucast;
-            doc["eth"]["diag"]["rx_mcast"] = ch390_diag.rx_mcast;
-            doc["eth"]["diag"]["rx_bcast"] = ch390_diag.rx_bcast;
-            doc["eth"]["diag"]["rx_bcast_arp"] = ch390_diag.rx_bcast_arp;
-            {
-                char top[100];
-                ch390_diag_top(false, top, sizeof(top));
-                doc["eth"]["diag"]["top_bcast"] = String(top);
-                ch390_diag_top(true, top, sizeof(top));
-                doc["eth"]["diag"]["top_mcast"] = String(top);
-            }
             doc["eth"]["diag"]["last_stall"] = ch390_diag_last();
         }
         if (EthHasIP) {
@@ -2099,7 +2079,7 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         if(request->hasParam("capacity_peak")) {
             int peak = request->getParam("capacity_peak")->value().toInt();
             if (LoadBl < 2 && setCapacityPeak(peak)) {
-                doc["capacity_peak_month"] = MainsMeter.Peak_Period_Power_Month;     // can stay higher than the requested value: the peak is only raised
+                doc["capacity_peak_month"] = MainsMeter.Peak_Period_Power_Month;
             } else {
                 doc["capacity_peak_month"] = "Value not allowed!";
             }
