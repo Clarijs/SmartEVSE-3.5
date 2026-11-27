@@ -5,6 +5,18 @@
 Changes of this fork on top of [dingo35/SmartEVSE-3.5](https://github.com/dingo35/SmartEVSE-3.5).
 Every change is added to **Unreleased** first; at the next release that section gets the version number.
 
+## Unreleased
+
+- **Fix: a current override could exceed the cable limit.** On the socket version the charge current is
+  capped to the cable's rating (proximity pin), and an OCPP limit can lower it further; a current override
+  (REST `override_current`, MQTT `Set/CurrentOverride`, Home Assistant *Charge Current Override*, EVCC)
+  replaced that cap instead of staying under it. The override is now limited by both, so the cable is
+  never overloaded.
+- **Current override out of range is clamped instead of ignored.** A value above MaxCurrent (or below
+  MinCurrent) was refused, over REST still with HTTP 200, and the previous override stayed active until a
+  reboot: EVCC asking 14 A on a 13 A charger kept charging at 6 A (dingo35/SmartEVSE-3.5#444). The value
+  is now clamped to MinCurrent..MaxCurrent and REST returns the value that is used.
+
 ## v3.11.3-Clarijs.6 — 27 Nov 2026
 
 - **Ethernet: diagnostic sensors removed.** The Ethernet fixes are done, so all `Eth …` sensors are gone:
