@@ -5,7 +5,7 @@
 Changes of this fork on top of [dingo35/SmartEVSE-3.5](https://github.com/dingo35/SmartEVSE-3.5).
 Every change is added to **Unreleased** first; at the next release that section gets the version number.
 
-## Unreleased
+## v3.11.3-Clarijs.6 — 27 Nov 2026
 
 - **Monthly peak: the meter is the reference.** A monthly peak received from the meter (`/Set/CapacityPeak`,
   REST `capacity_peak`, HomeWizard P1) is now taken over exactly, also when it is lower than the peak the
