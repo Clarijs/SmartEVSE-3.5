@@ -17,20 +17,22 @@ with the peak read from your digital meter, **without emptying your home battery
 
 | | Feature | In short |
 |---|---|---|
-| 🖥️ | **New web interface** | Visual dashboard as start page (status, capacity bar, chart, big mode buttons); every setting under *All settings*; light and dark. |
+| 🖥️ | **New web interface** | Visual dashboard as start page (status, capacity bar, live power flow, big mode buttons); every setting under *All settings*; light and dark. |
 | ⚡ | **Mode Peak** | Stable ceiling = monthly peak − margin. Never above the peak, not even for a few seconds. |
-| 📈 | **Monthly peak from the meter** | The official peak (OBIS 1-0:1.6.0) is synced over MQTT / REST, or read from a HomeWizard P1 (no MQTT needed), and survives a reboot. |
+| 📈 | **Monthly peak from the meter** | The official peak (OBIS 1-0:1.6.0) is synced over MQTT / REST, or read from a HomeWizard P1 (no MQTT needed); the meter is the reference, and the peak survives a reboot. |
 | 🔌 | **Measured voltage** | Power is converted to current with the real mains voltage instead of 230 V. |
-| 🎚️ | **0.1 A steps + margin** | Max Sum Mains in 0.1 A steps; configurable margin in W. |
+| 🎚️ | **0.1 A steps + margin** | Max Sum Mains in 0.1 A steps; Smart mode regulates right up to the limit; configurable margin in W (minimum 20 W). |
 | 🔁 | **Regulation per switched phase** | A single-phase charger corrects an overshoot in one step instead of three. |
 | 🔋 | **Home battery in watts** | Send the battery power in W (+ SoC); offset and conversion to amps are done by the charger. |
 | 🛡️ | **Peak Shaving SoC** | Below this SoC the battery only does peak shaving: in Smart mode the car cannot use that part of the battery. |
 | 🚀 | **Correct start current** | No more start at full current; the setpoint never exceeds the measured headroom. |
 | 📡 | **Configurable API timeout** | A short Wi-Fi hiccup of your P1 reader no longer stops charging. |
+| 🌐 | **Stable Ethernet (CH390D)** | The receiver is restarted within 1 s when the chip stops delivering frames, instead of staying deaf until a power cycle. |
 
-Measured on a single-phase installation with a 15 kWh home battery: night charging now stays
-**92–110 W under the monthly peak** with the home battery idle, where it used to stay 255–455 W under
-the peak while the battery delivered ~0.7 kWh into the car.
+Measured on a single-phase installation with a 15 kWh home battery (margin 20 W): charging now stays
+**about 45–70 W under the monthly peak** (quarters at 2745–2764 W with a 2812 W peak) with the home
+battery idle, where it used to stay 255–455 W under the peak while the battery delivered ~0.7 kWh into
+the car.
 
 # New web interface
 
@@ -38,7 +40,7 @@ Open `http://smartevse-<serial>.local/` (or the charger's IP address): the start
 that shows at a glance what the charger is doing and how much room is left under your monthly peak.
 Everything else is under **All settings**. Light and dark, on a phone or a computer.
 
-<img src="pictures/clarijs/dashboard-light.png" alt="Dashboard: charging status, capacity bar, home battery, 10-minute chart, mode buttons" width="820">
+<img src="pictures/clarijs/dashboard-light.png" alt="Dashboard: charging status, capacity bar, home battery, live power flow, mode buttons" width="820">
 
 | Dark mode | On a phone |
 |---|---|
