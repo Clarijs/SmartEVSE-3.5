@@ -12,7 +12,6 @@ Every change is added to **Unreleased** first; at the next release that section 
   `Eth Rx Zero`, `Eth Last Stall` (MQTT and Home Assistant) and `eth.diag` in `/settings`. Their Home
   Assistant entities are removed automatically and the stored stall snapshot is erased. The fixes stay
   (receiver restart after 1 s, 30 s watchdog); a stall snapshot is now only written to the log.
-
 - **Monthly peak: the meter is the reference.** A monthly peak received from the meter (`/Set/CapacityPeak`,
   REST `capacity_peak`, HomeWizard P1) is now taken over exactly, also when it is lower than the peak the
   SmartEVSE calculated itself. That own calculation uses the energy counter in whole Wh (4 W steps per
