@@ -223,8 +223,7 @@ struct ch390_diag_t {
     uint32_t last_tx_s;      // uptime (s) of the last accepted transmit
 };
 extern volatile ch390_diag_t ch390_diag;
-void ch390_diag_tick(void);              // call once per second
-const char *ch390_diag_last(void);       // snapshot stored at the last stall ("" = none)
+void ch390_diag_tick(void);              // call once per second (logs stall snapshots)
 
 // Runtime flags
 extern bool EthPresent;     // true if CH390D chip was detected at boot

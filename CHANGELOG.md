@@ -5,6 +5,14 @@
 Changes of this fork on top of [dingo35/SmartEVSE-3.5](https://github.com/dingo35/SmartEVSE-3.5).
 Every change is added to **Unreleased** first; at the next release that section gets the version number.
 
+## Unreleased
+
+- **Ethernet: diagnostic sensors removed.** The Ethernet fixes are done, so all `Eth …` sensors are gone:
+  `Eth Rx Overflow`, `Eth Rx Resync`, `Eth Tx Busy`, `Eth Rx Busy Loops`, `Eth Rx Kick`, `Eth Rx Reset`,
+  `Eth Rx Zero`, `Eth Last Stall` (MQTT and Home Assistant) and `eth.diag` in `/settings`. Their Home
+  Assistant entities are removed automatically and the stored stall snapshot is erased. The fixes stay
+  (receiver restart after 1 s, 30 s watchdog); a stall snapshot is now only written to the log.
+
 ## v3.11.3-Clarijs.6 — 27 Nov 2026
 
 - **Monthly peak: the meter is the reference.** A monthly peak received from the meter (`/Set/CapacityPeak`,

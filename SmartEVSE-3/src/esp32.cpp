@@ -1014,22 +1014,16 @@ void SetupMQTTClient() {
         ", \"entity_category\":\"diagnostic\", \"device_class\":\"signal_strength\", \"unit_of_measurement\":\"dBm\", \"state_class\":\"measurement\"");
     MQTTclient.announce("ESP Temp",   "sensor",
         ", \"entity_category\":\"diagnostic\", \"device_class\":\"temperature\", \"unit_of_measurement\":\"°C\", \"state_class\":\"measurement\"");
-    if (EthPresent) {
-        const char *cnt = ", \"entity_category\":\"diagnostic\", \"state_class\":\"total_increasing\"";
-        MQTTclient.announce("Eth Rx Overflow", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Resync", "sensor", cnt);
-        MQTTclient.announce("Eth Tx Busy", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Busy Loops", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Kick", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Reset", "sensor", cnt);
-        MQTTclient.announce("Eth Rx Zero", "sensor", cnt);
-        // Traffic-mix sensors from test builds (Nov 2026): remove their retained discovery configs
-        for (const char *old : {"EthRxUnicast", "EthRxMulticast", "EthRxBroadcast", "EthRxBroadcastArp", "EthTopBroadcast", "EthTopMulticast"}) {
+    {   // Ethernet diagnostic sensors of earlier test builds (Nov 2026): remove their retained
+        // Home Assistant discovery configs and the retained last-stall state.
+        for (const char *old : {"EthRxOverflow", "EthRxResync", "EthTxBusy", "EthRxBusyLoops", "EthRxKick",
+                                "EthRxReset", "EthRxZero", "EthLastStall", "EthRxUnicast", "EthRxMulticast",
+                                "EthRxBroadcast", "EthRxBroadcastArp", "EthTopBroadcast", "EthTopMulticast"}) {
             char t[160];
             snprintf(t, sizeof(t), "homeassistant/sensor/%s-%s/config", MQTTprefix.c_str(), old);
             MQTTclient.publish(t, "", 0, true, 0);
         }
-        MQTTclient.announce("Eth Last Stall", "sensor", ", \"entity_category\":\"diagnostic\"");
+        MQTTclient.publish((MQTTprefix + "/EthLastStall").c_str(), "", 0, true, 0);
     }
     MQTTclient.announce("ESP Uptime", "sensor",
         ", \"entity_category\":\"diagnostic\", \"device_class\":\"duration\", \"unit_of_measurement\":\"s\", \"state_class\":\"measurement\", \"entity_registry_enabled_default\":\"False\"");
@@ -1217,17 +1211,6 @@ void mqttPublishData() {
         }
         mqPubI("/ESPUptime", (int32_t)(esp_timer_get_time() / 1000000), false, 0);
         mqPubI("/WiFiRSSI", WiFi.RSSI(), false, 0);
-        if (EthPresent) {
-            mqPubI("/EthRxOverflow", (int32_t)ch390_diag.rx_overflow, false, 0);
-            mqPubI("/EthRxResync", (int32_t)(ch390_diag.rx_pkt_err + ch390_diag.rx_bad_len), false, 0);
-            mqPubI("/EthTxBusy", (int32_t)ch390_diag.tx_busy, false, 0);
-            mqPubI("/EthRxBusyLoops", (int32_t)ch390_diag.busy_loops, false, 0);
-            mqPubI("/EthRxKick", (int32_t)ch390_diag.rx_kick, false, 0);
-            mqPubI("/EthRxReset", (int32_t)ch390_diag.rx_reset, false, 0);
-            mqPubI("/EthRxZero", (int32_t)ch390_diag.rx_zero, false, 0);
-            const char *last = ch390_diag_last();
-            mqPub("/EthLastStall", last[0] ? last : "none", strlen(last[0] ? last : "none"), true, 0);
-        }
         mqPubI("/LoadBl", LoadBl, true, 0);
         mqPubS("/PairingPin", PairingPin.c_str(), true, 0);
         mqPubI("/SolarStopTimer", SolarStopTimer, false, 0);
@@ -1795,20 +1778,6 @@ bool handle_URI(struct mg_connection *c, struct mg_http_message *hm,  webServerR
         doc["eth"]["present"] = EthPresent;
         doc["eth"]["connected"] = EthConnected;
         doc["eth"]["has_ip"] = EthHasIP;
-        if (EthPresent) {
-            doc["eth"]["diag"]["rx_frames"] = ch390_diag.rx_frames;
-            doc["eth"]["diag"]["rx_overflow"] = ch390_diag.rx_overflow;
-            doc["eth"]["diag"]["rx_pkt_err"] = ch390_diag.rx_pkt_err;
-            doc["eth"]["diag"]["rx_bad_len"] = ch390_diag.rx_bad_len;
-            doc["eth"]["diag"]["rx_read_fail"] = ch390_diag.rx_read_fail;
-            doc["eth"]["diag"]["rx_nomem"] = ch390_diag.rx_nomem;
-            doc["eth"]["diag"]["tx_busy"] = ch390_diag.tx_busy;
-            doc["eth"]["diag"]["busy_loops"] = ch390_diag.busy_loops;
-            doc["eth"]["diag"]["rx_kick"] = ch390_diag.rx_kick;
-            doc["eth"]["diag"]["rx_reset"] = ch390_diag.rx_reset;
-            doc["eth"]["diag"]["rx_zero"] = ch390_diag.rx_zero;
-            doc["eth"]["diag"]["last_stall"] = ch390_diag_last();
-        }
         if (EthHasIP) {
             doc["eth"]["ip"] = ch390_get_ip();
         }

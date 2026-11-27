@@ -142,7 +142,7 @@ static volatile bool s_force_link_down = false;
 // Stall snapshot (diagnostics, see the end of this file)
 #define CH390_DIAG_LEN 240
 static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out, size_t n);
-static char ch390_diag_pending[CH390_DIAG_LEN];      // filled by the RX task, written to NVS by ch390_diag_tick()
+static char ch390_diag_pending[CH390_DIAG_LEN];      // filled by the RX task, logged by ch390_diag_tick()
 static volatile bool ch390_diag_pending_set = false;
 
 // Internal stop/start helpers — caller must hold spi_lock.
@@ -202,8 +202,8 @@ static void ch390_rx_restart_locked(void) {
 
 // Restart the receiver after a stall, taking a diagnostic snapshot first (the
 // restart clears exactly the state we want to see). Only the snapshot is taken
-// here; the flash write happens later in ch390_diag_tick() (main loop), not on
-// the 4 KB RX task stack. One snapshot per stall: further restarts without a
+// here; it is logged later by ch390_diag_tick() (main loop), not on the 4 KB
+// RX task stack. One snapshot per stall: further restarts without a
 // frame received in between are the same stall. Caller holds spi_lock.
 static void ch390_rx_recover_locked(const char *why, uint32_t now) {
     static uint32_t snap_frames = UINT32_MAX;
@@ -1102,28 +1102,14 @@ esp_err_t ch390_eth_init(void) {
 
 
 // ---- Diagnostics (Clarijs) ------------------------------------------------
-// A snapshot of the chip state and the counters is written to NVS ("ethdiag"/
-// "last") so it survives a restart and shows up as `Eth Last Stall`:
+// At a stall a snapshot of the chip state and the counters is written to the
+// log (serial / telnet), not stored or published:
 //  - why=zero  when the receiver is restarted because RXRDY was set for 1 s
 //              without a readable frame (taken just before the restart);
 //  - why=rxwd  when the 30 s RX watchdog restarts the receiver (same);
 //  - why=idle  once per boot when nothing was received or sent for 60 s and no
 //              watchdog snapshot was taken (e.g. a TX-side stall).
-static char ch390_diag_last_buf[CH390_DIAG_LEN] = "";
-static bool ch390_diag_loaded = false;
 static bool ch390_diag_stored = false;
-
-const char *ch390_diag_last(void) {
-    if (!ch390_diag_loaded) {
-        Preferences p;
-        if (p.begin("ethdiag", true)) {
-            p.getString("last", ch390_diag_last_buf, sizeof(ch390_diag_last_buf));
-            p.end();
-        }
-        ch390_diag_loaded = true;
-    }
-    return ch390_diag_last_buf;
-}
 
 // Read the chip registers and format the snapshot. Caller holds spi_lock.
 // Returns false when the cable is unplugged (not a driver stall).
@@ -1155,22 +1141,23 @@ static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out,
     return true;
 }
 
-// Keep the snapshot in RAM and in NVS. Main loop only, not under spi_lock.
+// Log the snapshot. Main loop only, not under spi_lock.
 static void ch390_diag_store(const char *snap) {
     _LOG_A("CH390 stall: %s\n", snap);
-    Preferences p;
-    if (p.begin("ethdiag", false)) {
-        p.putString("last", snap);
-        p.end();
-    }
-    strlcpy(ch390_diag_last_buf, snap, sizeof(ch390_diag_last_buf));
-    ch390_diag_loaded = true;
-    ch390_diag_stored = true;   // the previous snapshot stays readable until a new one is taken
+    ch390_diag_stored = true;
 }
 
 void ch390_diag_tick(void) {
+    static bool nvs_cleared = false;
+    if (!nvs_cleared) {                           // snapshot of earlier test builds: free its NVS entry once
+        nvs_cleared = true;
+        Preferences p;
+        bool has = false;
+        if (p.begin("ethdiag", true)) { has = p.isKey("last"); p.end(); }   // read-only: no write when absent
+        if (has && p.begin("ethdiag", false)) { p.clear(); p.end(); }
+    }
     if (!EthPresent || !s_emac) return;
-    if (ch390_diag_pending_set) {                 // RX watchdog snapshot waiting to be stored
+    if (ch390_diag_pending_set) {                 // RX restart snapshot waiting to be logged
         ch390_diag_store(ch390_diag_pending);
         ch390_diag_pending_set = false;
         return;
