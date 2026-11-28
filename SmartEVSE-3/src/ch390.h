@@ -106,8 +106,7 @@
 #define NSR_TX2END      (1 << 3)
 #define NSR_TX1END      (1 << 2)
 #define NSR_LINKST      (1 << 6)    // Link status (1=up)
-#define NSR_RXOV        (1 << 1)    // RX FIFO overflow
-#define NSR_RXRDY       (1 << 0)    // RX SRAM holds a packet
+#define NSR_RXRDY       (1 << 0)    // RX packet ready in SRAM
 
 #define TCR_TXREQ       (1 << 0)    // TX request
 #define TCR2_RLCP       (1 << 6)    // Retry late collision
@@ -205,25 +204,6 @@ esp_err_t ch390_eth_init(void);
 
 // Get the Ethernet IP address string (empty if no IP).
 const char* ch390_get_ip(void);
-
-// Diagnostics (Clarijs): counters to find out why Ethernet stops receiving.
-struct ch390_diag_t {
-    uint32_t rx_frames;      // frames passed to the IP stack
-    uint32_t rx_overflow;    // ISR reported RX FIFO overflow (ROS/ROO)
-    uint32_t rx_pkt_err;     // corrupt head byte -> FIFO resync
-    uint32_t rx_bad_len;     // impossible frame length -> FIFO resync
-    uint32_t rx_read_fail;   // receive() returned an error
-    uint32_t rx_nomem;       // no heap for a received frame
-    uint32_t tx_busy;        // transmit refused: previous TX still pending
-    uint32_t busy_loops;     // RX task found INT already high (no sleep)
-    uint32_t rx_kick;        // data in RX SRAM without a PR interrupt: drained anyway
-    uint32_t rx_reset;       // RX path reset by the 30 s no-receive watchdog
-    uint32_t rx_zero;        // RXRDY set but head byte 0x00 for 1 s -> RX restarted
-    uint32_t last_rx_s;      // uptime (s) of the last received frame
-    uint32_t last_tx_s;      // uptime (s) of the last accepted transmit
-};
-extern volatile ch390_diag_t ch390_diag;
-void ch390_diag_tick(void);              // call once per second (logs stall snapshots)
 
 // Runtime flags
 extern bool EthPresent;     // true if CH390D chip was detected at boot

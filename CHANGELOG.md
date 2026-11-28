@@ -7,6 +7,16 @@ Every change is added to **Unreleased** first; at the next release that section 
 
 ## Unreleased
 
+- **Merged dingo35 master** (up to c2c5568):
+  - **Ethernet (CH390D): upstream hardening by Michael Stegen** (591519f), which replaces this fork's own
+    RX workaround: the FIFO is reset with RX stopped, a "frame ready" flag with nothing readable is only
+    acted on when the read and write pointers really differ (no needless restarts on an empty FIFO),
+    error frames are skipped without passing the write pointer (a likely cause of the pointer desync),
+    TX memory is only written after the previous frame was sent, the link status is cross-checked, idle
+    HTTP connections are closed after 15 s, and OCPP uses the already mounted file system. This fork keeps
+    one extra safety net: when the link is up but nothing at all is received for 30 s, the receiver is
+    restarted.
+  - Virtual meters no longer claim Modbus responses (c2c5568, SmartEVSE/SmartEVSE-3#160).
 - **Fix: a current override could exceed the cable limit.** On the socket version the charge current is
   capped to the cable's rating (proximity pin), and an OCPP limit can lower it further; a current override
   (REST `override_current`, MQTT `Set/CurrentOverride`, Home Assistant *Charge Current Override*, EVCC)

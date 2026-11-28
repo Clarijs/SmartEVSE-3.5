@@ -23,7 +23,6 @@
 #include "freertos/semphr.h"
 #include "esp_timer.h"
 #include "esp_rom_sys.h"
-#include <Preferences.h>
 
 // ---------- Runtime state ----------
 bool EthPresent  = false;
@@ -131,19 +130,14 @@ typedef struct {
 } emac_ch390_t;
 
 static emac_ch390_t *s_emac = NULL;
-volatile ch390_diag_t ch390_diag = {};
-static inline uint32_t ch390_uptime_s(void) { return (uint32_t)(esp_timer_get_time() / 1000000); }
 static volatile bool s_force_link_down = false;
+
+static uint8_t s_desyncSeen;   // consecutive suspicious "no packet" observations
+static bool s_staleCheck;      // SRAM may hold stale frames after RST_RX
 
 
 #define CH390_LOCK(emac)   xSemaphoreTake((emac)->spi_lock, portMAX_DELAY)
 #define CH390_UNLOCK(emac) xSemaphoreGive((emac)->spi_lock)
-
-// Stall snapshot (diagnostics, see the end of this file)
-#define CH390_DIAG_LEN 240
-static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out, size_t n);
-static char ch390_diag_pending[CH390_DIAG_LEN];      // filled by the RX task, logged by ch390_diag_tick()
-static volatile bool ch390_diag_pending_set = false;
 
 // Internal stop/start helpers — caller must hold spi_lock.
 static void ch390_stop_locked(emac_ch390_t *emac) {
@@ -160,59 +154,15 @@ static void ch390_start_locked(emac_ch390_t *emac) {
     uint8_t rcr;
     ch390_reg_read(CH390_RCR, &rcr);
     ch390_reg_write(CH390_RCR, rcr | RCR_RXEN);
+    s_staleCheck = true;   // RST_RX does not clear the SRAM
 }
 
-// Drop a received frame by advancing the RX SRAM read pointer past it.
+// Reset RX FIFO while RX is stopped (matches WCH/Espressif reference).
 // Caller must hold spi_lock.
-static void ch390_drop_frame(uint16_t length) {
-    uint8_t mrrh, mrrl;
-    ch390_reg_read(CH390_MRRH, &mrrh);
-    ch390_reg_read(CH390_MRRL, &mrrl);
-    uint16_t addr = (mrrh << 8) | mrrl;
-    addr += length;  // includes 4B header already consumed
-    if (addr >= 0x4000) addr -= 0x3400;
-    ch390_reg_write(CH390_MRRH, addr >> 8);
-    ch390_reg_write(CH390_MRRL, addr & 0xFF);
-}
-
-// Drop the whole RX FIFO: move the read pointer onto the write pointer.
-// Resetting it to SRAM start (MPTRCR_RST_RX) exposes stale bytes instead.
-// Caller must hold spi_lock.
-static void ch390_rx_resync_locked(void) {
-    uint8_t rwph, rwpl;
-    ch390_reg_read(CH390_RWPAH, &rwph);
-    ch390_reg_read(CH390_RWPAL, &rwpl);
-    ch390_reg_write(CH390_MRRH, rwph);
-    ch390_reg_write(CH390_MRRL, rwpl);
-}
-
-// Restart the receiver without losing the chip setup: RX off, drop the FIFO
-// (read pointer onto write pointer), clear status, RX on. Caller holds spi_lock.
-static void ch390_rx_restart_locked(void) {
-    uint8_t rcr;
-    ch390_reg_write(CH390_IMR, IMR_PAR);
-    ch390_reg_read(CH390_RCR, &rcr);
-    ch390_reg_write(CH390_RCR, rcr & ~RCR_RXEN);
-    esp_rom_delay_us(100);
-    ch390_rx_resync_locked();
-    ch390_reg_write(CH390_ISR, ISR_CLR_STATUS);
-    ch390_reg_write(CH390_RCR, rcr | RCR_RXEN);
-    ch390_reg_write(CH390_IMR, IMR_PAR | IMR_PRI);
-}
-
-// Restart the receiver after a stall, taking a diagnostic snapshot first (the
-// restart clears exactly the state we want to see). Only the snapshot is taken
-// here; it is logged later by ch390_diag_tick() (main loop), not on the 4 KB
-// RX task stack. One snapshot per stall: further restarts without a
-// frame received in between are the same stall. Caller holds spi_lock.
-static void ch390_rx_recover_locked(const char *why, uint32_t now) {
-    static uint32_t snap_frames = UINT32_MAX;
-    if (!ch390_diag_pending_set && ch390_diag.rx_frames != snap_frames &&
-        ch390_diag_snapshot_locked(why, now, ch390_diag_pending, sizeof(ch390_diag_pending))) {
-        snap_frames = ch390_diag.rx_frames;
-        ch390_diag_pending_set = true;
-    }
-    ch390_rx_restart_locked();
+static void ch390_rx_resync_locked(emac_ch390_t *emac) {
+    ch390_stop_locked(emac);
+    esp_rom_delay_us(1000);
+    ch390_start_locked(emac);
 }
 
 // Full software reset + register reinit. Caller must hold spi_lock.
@@ -298,15 +248,14 @@ static void IRAM_ATTR ch390_isr_handler(void *arg) {
 // RX task — matches reference emac_ch390_task structure
 static void ch390_rx_task(void *arg) {
     emac_ch390_t *emac = (emac_ch390_t *)arg;
-    uint8_t status = 0, nsr = 0;
+    uint8_t status = 0;
     uint8_t *buffer;
+    int64_t last_rx_ms = esp_timer_get_time() / 1000;                     // Clarijs: 30 s no-receive watchdog
     while (1) {
         // INT is a level but the GPIO is edge-triggered: only sleep while it is
         // low, otherwise a missed edge stalls RX for up to 1 s (FIFO overflow).
         if (gpio_get_level((gpio_num_t)CH390_INT) == 0) {
             ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
-        } else {
-            ch390_diag.busy_loops++;
         }
 
         // Mask while clearing: a bit set between read and write-back would
@@ -315,93 +264,50 @@ static void ch390_rx_task(void *arg) {
         ch390_reg_write(CH390_IMR, IMR_PAR);
         ch390_reg_read(CH390_ISR, &status);
         ch390_reg_write(CH390_ISR, status);
-        ch390_reg_read(CH390_NSR, &nsr);
         ch390_reg_write(CH390_IMR, IMR_PAR | IMR_PRI);
         CH390_UNLOCK(emac);
-        if (status & (ISR_ROS | ISR_ROO)) ch390_diag.rx_overflow++;
 
-        // Clarijs: also drain when the SRAM holds data without a PR interrupt.
-        // Once PR is lost (cleared while frames were left behind after a read
-        // error) nothing else ever reads the FIFO: it fills up, new frames are
-        // dropped and Ethernet stays deaf until a power cycle.
-        bool pending = (status & ISR_PR) || (nsr & NSR_RXRDY);
-        if (!(status & ISR_PR) && (nsr & NSR_RXRDY)) ch390_diag.rx_kick++;
-
-        bool zero_head = false;                  // RXRDY, but nothing readable at the read pointer
-        if (pending) {
-            int budget = 64;                     // frames per pass, then yield
-            int failures = 0;
-            int got = 0;
-            while (budget-- > 0) {
-                uint32_t frame_len = 0;
-                if (emac->parent.receive(&emac->parent, emac->rx_buffer, &frame_len) == ESP_OK) {
-                    if (frame_len == 0) {
-                        if (got == 0 && failures == 0 && (nsr & NSR_RXRDY)) zero_head = true;
-                        break;
-                    }
-                    got++;
-                    /* allocate memory and check whether allocation failed */
-                    buffer = (uint8_t *)malloc(frame_len);
-                    if (buffer == NULL) {
-                        ch390_diag.rx_nomem++;
-                        _LOG_A("CH390: no memory for receive buffer\n");
-                        continue;
-                    }
-                    ch390_diag.rx_frames++;
-                    ch390_diag.last_rx_s = ch390_uptime_s();
-                    /* pass the buffer to stack (e.g. TCP/IP layer) */
-                    memcpy(buffer, emac->rx_buffer, frame_len);
-                    emac->eth->stack_input(emac->eth, buffer, frame_len);
-                } else {
-                    // The bad frame was dropped or the FIFO resynced; keep going
-                    // instead of leaving the rest of the FIFO unread.
-                    ch390_diag.rx_read_fail++;
-                    _LOG_W("CH390: frame read failed\n");
-                    if (++failures >= 4) break;
+        /* Drain RX FIFO on any wakeup (ISR edge, INT level, or 1s poll) */
+        do {
+            uint32_t frame_len = 0;
+            if (emac->parent.receive(&emac->parent, emac->rx_buffer, &frame_len) == ESP_OK) {
+                if (frame_len == 0) {
+                    break;
                 }
+                /* allocate memory and check whether allocation failed */
+                buffer = (uint8_t *)malloc(frame_len);
+                if (buffer == NULL) {
+                    _LOG_A("CH390: no memory for receive buffer\n");
+                    continue;
+                }
+                /* pass the buffer to stack (e.g. TCP/IP layer) */
+                memcpy(buffer, emac->rx_buffer, frame_len);
+                emac->eth->stack_input(emac->eth, buffer, frame_len);
+                last_rx_ms = esp_timer_get_time() / 1000;
+            } else {
+                _LOG_W("CH390: frame read failed\n");
+                break;
             }
+        } while (1);
 
-            // Yield briefly after draining all pending packets.
-            vTaskDelay(1);
+        // Clarijs: last-resort watchdog. With the link up a home network always
+        // delivers frames (MQTT, ARP, ...); if nothing at all arrived for 30 s the
+        // receiver is stuck in a way the checks above did not catch: restart it.
+        int64_t now_ms = esp_timer_get_time() / 1000;
+        if (now_ms - last_rx_ms > 30000) {
+            uint8_t nsr = 0;
+            CH390_LOCK(emac);
+            ch390_reg_read(CH390_NSR, &nsr);
+            if (nsr & NSR_LINKST) {
+                _LOG_A("CH390: nothing received for 30 s, restarting RX\n");
+                ch390_rx_resync_locked(emac);
+            }
+            CH390_UNLOCK(emac);
+            last_rx_ms = now_ms;
         }
 
-        uint32_t now = ch390_uptime_s();
-
-        // Clarijs: the chip reports a frame waiting (NSR RXRDY) but the head byte
-        // at the read pointer is 0x00, so receive() sees "no frame" and never
-        // resyncs. The FIFO fills up and RX stays deaf until the 30 s watchdog
-        // (stall snapshots of 15 and 17 Nov: NSR RXRDY+RXOV, RP ~1 KB ahead of WP).
-        // If that persists for 1 s, restart the receiver right away.
-        static int64_t zero_since_ms = 0;
-        if (zero_head) {
-            int64_t now_ms = esp_timer_get_time() / 1000;
-            if (!zero_since_ms) {
-                zero_since_ms = now_ms;
-            } else if (now_ms - zero_since_ms >= 1000) {
-                zero_since_ms = 0;
-                ch390_diag.rx_zero++;
-                _LOG_A("CH390: RXRDY without a readable frame for 1 s, restarting RX\n");
-                CH390_LOCK(emac);
-                ch390_rx_recover_locked("zero", now);
-                CH390_UNLOCK(emac);
-            }
-        } else {
-            zero_since_ms = 0;
-        }
-
-        // Watchdog: link up but nothing received for 30 s -> restart the receiver.
-        // (MQTT, the mains meter and ARP keep a working link busy every second.)
-        if ((nsr & NSR_LINKST) && ch390_diag.last_rx_s && now - ch390_diag.last_rx_s >= 30) {
-            static uint32_t last_reset_s = 0;
-            if (now - last_reset_s >= 30) {
-                last_reset_s = now;
-                ch390_diag.rx_reset++;
-                _LOG_A("CH390: nothing received for %lus, restarting RX\n", (unsigned long)(now - ch390_diag.last_rx_s));
-                CH390_LOCK(emac);
-                ch390_rx_recover_locked("rxwd", now);
-                CH390_UNLOCK(emac);
-            }
-        }
+        // Yield briefly after draining all pending packets.
+        vTaskDelay(1);
     }
     vTaskDelete(NULL);
 }
@@ -470,10 +376,7 @@ static esp_err_t ch390_mac_transmit(esp_eth_mac_t *mac, uint8_t *buf, uint32_t l
 
     CH390_LOCK(emac);
 
-    // Write packet data to TX memory
-    ch390_mem_write(buf, length);
-
-    // Check if last transmit is complete (poll TCR_TXREQ)
+    // Wait for the previous transmission to finish BEFORE touching TX memory.
     uint8_t tcr;
     int64_t wait_time = esp_timer_get_time();
     do {
@@ -481,23 +384,47 @@ static esp_err_t ch390_mac_transmit(esp_eth_mac_t *mac, uint8_t *buf, uint32_t l
     } while ((tcr & TCR_TXREQ) && ((esp_timer_get_time() - wait_time) < 1000));
 
     if (tcr & TCR_TXREQ) {
-        ch390_diag.tx_busy++;
         _LOG_W("CH390: last transmit still in progress, cannot send\n");
         CH390_UNLOCK(emac);
         return ESP_ERR_INVALID_STATE;
     }
+
+    // Write packet data to TX memory
+    ch390_mem_write(buf, length);
 
     // Set TX packet length
     ch390_reg_write(CH390_TXPLL, length & 0xFF);
     ch390_reg_write(CH390_TXPLH, (length >> 8) & 0xFF);
 
     // Issue TX polling command
-    ch390_reg_read(CH390_TCR, &tcr);
     ch390_reg_write(CH390_TCR, tcr | TCR_TXREQ);
 
     CH390_UNLOCK(emac);
-    ch390_diag.last_tx_s = ch390_uptime_s();
     return ESP_OK;
+}
+
+// Read a 16-bit memory pointer register pair.
+static uint16_t ch390_read_ptr(uint8_t hi_reg, uint8_t lo_reg) {
+    uint8_t hi = 0, lo = 0;
+    ch390_reg_read(hi_reg, &hi);
+    ch390_reg_read(lo_reg, &lo);
+    return ((uint16_t)hi << 8) | lo;
+}
+
+// Advance MRR past a frame, clamped to RWP. An error frame (FOE, AE, PLE,
+// RWTO, ...) may have been stored only partially, so its header length can
+// overshoot the FIFO; landing on RWP keeps the pointer pair consistent.
+// Caller must hold spi_lock.
+static void ch390_rx_advance_clamped_locked(uint16_t length) {
+    uint16_t mrr = ch390_read_ptr(CH390_MRRH, CH390_MRRL);
+    uint16_t rwp = ch390_read_ptr(CH390_RWPAH, CH390_RWPAL);
+    uint16_t avail = (rwp >= mrr) ? (uint16_t)(rwp - mrr)
+                                  : (uint16_t)(0x3400 - (mrr - rwp));
+    if (length > avail) length = avail;
+    uint16_t addr = (uint16_t)(mrr + length);
+    if (addr >= 0x4000) addr -= 0x3400;
+    ch390_reg_write(CH390_MRRH, addr >> 8);
+    ch390_reg_write(CH390_MRRL, addr & 0xFF);
 }
 
 // Receive one packet from the CH390 RX SRAM.
@@ -507,46 +434,80 @@ static esp_err_t ch390_mac_receive(esp_eth_mac_t *mac, uint8_t *buf, uint32_t *l
 
     CH390_LOCK(emac);
 
-    // Double dummy read to get the most updated data
+    // Pre-fetch, then read the head byte (0x01 = frame ready, 0x00 = empty)
     uint8_t rxbyte;
     ch390_reg_read(CH390_MRCMDX, &rxbyte);
     ch390_reg_read(CH390_MRCMDX, &rxbyte);
 
-    // Corrupt head byte (pointer out of step, typically after an overflow):
-    // resync to the write pointer; a reset to SRAM start fails again at once.
     if (rxbyte & CH390_PKT_ERR) {
-        ch390_diag.rx_pkt_err++;
-        ch390_rx_resync_locked();
+        // Read pointer out of step: reset the FIFO (stop/start, as WCH and
+        // Espressif do).
+        ch390_rx_resync_locked(emac);
         CH390_UNLOCK(emac);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
-    if (rxbyte & CH390_PKT_RDY) {
-        // Read 4-byte RX header: flag, status, length_lo, length_hi
-        __attribute__((aligned(4))) uint8_t rx_header[CH390_RX_HDR_SIZE];
-        ch390_mem_read(rx_header, CH390_RX_HDR_SIZE);
-
-        uint8_t status = rx_header[1];
-        *length = (rx_header[3] << 8) + rx_header[2];
-
-        if (status & RSR_ERR_MASK) {
-            ch390_drop_frame(*length);
-            *length = 0;
-            CH390_UNLOCK(emac);
-            return ESP_ERR_INVALID_RESPONSE;
-        } else if (*length > ETH_MAX_PACKET_SIZE) {
-            ch390_diag.rx_bad_len++;
-            ch390_rx_resync_locked();
-            CH390_UNLOCK(emac);
-            return ESP_ERR_INVALID_RESPONSE;
+    if (!(rxbyte & CH390_PKT_RDY)) {
+        // Nothing at MRR. If the chip still reports a frame ready, the pointer
+        // pair is desynchronised and MRCMDX would return 0 forever. Require it
+        // twice: a frame completing between the reads looks the same once.
+        uint8_t nsr = 0;
+        ch390_reg_read(CH390_NSR, &nsr);
+        if (nsr & NSR_RXRDY) {
+            uint16_t mrr = ch390_read_ptr(CH390_MRRH, CH390_MRRL);
+            uint16_t rwp = ch390_read_ptr(CH390_RWPAH, CH390_RWPAL);
+            if (mrr == rwp) {
+                s_desyncSeen = 0;
+            } else if (++s_desyncSeen >= 2) {
+                s_desyncSeen = 0;
+                ch390_rx_resync_locked(emac);
+                CH390_UNLOCK(emac);
+                return ESP_ERR_INVALID_RESPONSE;
+            }
         } else {
-            ch390_mem_read(buf, *length);
-            *length -= ETH_CRC_LEN;
+            s_desyncSeen = 0;
         }
-    } else {
         *length = 0;
+        CH390_UNLOCK(emac);
+        return ESP_OK;
     }
 
+    // RST_RX does not clear the SRAM: only trust the head byte once the chip
+    // reports data ready (checked once per start).
+    if (s_staleCheck) {
+        uint8_t nsr = 0;
+        ch390_reg_read(CH390_NSR, &nsr);
+        if (!(nsr & NSR_RXRDY)) {
+            *length = 0;
+            CH390_UNLOCK(emac);
+            return ESP_OK;
+        }
+        s_staleCheck = false;
+    }
+
+    // Read 4-byte RX header: flag, status, length_lo, length_hi
+    __attribute__((aligned(4))) uint8_t rx_header[CH390_RX_HDR_SIZE];
+    ch390_mem_read(rx_header, CH390_RX_HDR_SIZE);
+    uint8_t status = rx_header[1];
+    *length = ((uint16_t)rx_header[3] << 8) | rx_header[2];
+
+    if (*length < ETH_CRC_LEN || *length > ETH_MAX_PACKET_SIZE) {
+        // Cannot advance the read pointer: header is corrupt.
+        ch390_rx_resync_locked(emac);
+        CH390_UNLOCK(emac);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    if (status & RSR_ERR_MASK) {
+        ch390_rx_advance_clamped_locked(*length);
+        *length = 0;
+        CH390_UNLOCK(emac);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    ch390_mem_read(buf, *length);
+    *length -= ETH_CRC_LEN;
+    s_desyncSeen = 0;
     CH390_UNLOCK(emac);
     return ESP_OK;
 }
@@ -797,6 +758,20 @@ static esp_err_t ch390_phy_get_link(esp_eth_phy_t *phy) {
     p->eth->phy_reg_read(p->eth, p->addr, PHY_BMSR, &bmsr);
 
     eth_link_t new_link = (bmsr & BMSR_LINK) ? ETH_LINK_UP : ETH_LINK_DOWN;
+    if (new_link == ETH_LINK_UP) {
+        // Cross-check the MAC's own link status (NSR.LINKST). If the PHY says
+        // up but the MAC has lost link, only a stop/start cycle re-arms it;
+        // reporting down here makes the next poll report up and do exactly that.
+        uint8_t nsr = 0;
+        if (s_emac) {
+            CH390_LOCK(s_emac);
+            ch390_reg_read(CH390_NSR, &nsr);
+            CH390_UNLOCK(s_emac);
+        }
+        if (!(nsr & NSR_LINKST)) {
+            new_link = ETH_LINK_DOWN;
+        }
+    }
     if (p->link != new_link) {
         // When link comes up, report speed/duplex before link state
         if (new_link == ETH_LINK_UP) {
@@ -1098,78 +1073,4 @@ esp_err_t ch390_eth_init(void) {
 
     _LOG_I("CH390D Ethernet initialized, DHCP started\n");
     return ESP_OK;
-}
-
-
-// ---- Diagnostics (Clarijs) ------------------------------------------------
-// At a stall a snapshot of the chip state and the counters is written to the
-// log (serial / telnet), not stored or published:
-//  - why=zero  when the receiver is restarted because RXRDY was set for 1 s
-//              without a readable frame (taken just before the restart);
-//  - why=rxwd  when the 30 s RX watchdog restarts the receiver (same);
-//  - why=idle  once per boot when nothing was received or sent for 60 s and no
-//              watchdog snapshot was taken (e.g. a TX-side stall).
-static bool ch390_diag_stored = false;
-
-// Read the chip registers and format the snapshot. Caller holds spi_lock.
-// Returns false when the cable is unplugged (not a driver stall).
-static bool ch390_diag_snapshot_locked(const char *why, uint32_t now, char *out, size_t n) {
-    uint8_t nsr = 0, isr = 0, imr = 0, rcr = 0, tcr = 0, rocr = 0, wph = 0, wpl = 0, rph = 0, rpl = 0;
-    ch390_reg_read(CH390_NSR, &nsr);
-    ch390_reg_read(CH390_ISR, &isr);
-    ch390_reg_read(CH390_IMR, &imr);
-    ch390_reg_read(CH390_RCR, &rcr);
-    ch390_reg_read(CH390_TCR, &tcr);
-    ch390_reg_read(CH390_ROCR, &rocr);
-    ch390_reg_read(CH390_RWPAH, &wph);
-    ch390_reg_read(CH390_RWPAL, &wpl);
-    ch390_reg_read(CH390_MRRH, &rph);
-    ch390_reg_read(CH390_MRRL, &rpl);
-    if (!(nsr & NSR_LINKST)) return false;
-
-    uint32_t rx_idle = ch390_diag.last_rx_s ? now - ch390_diag.last_rx_s : 0;
-    uint32_t tx_idle = ch390_diag.last_tx_s ? now - ch390_diag.last_tx_s : 0;
-    snprintf(out, n,
-        "why=%s up=%lu rxidle=%lu txidle=%lu INT=%d NSR=%02X ISR=%02X IMR=%02X RCR=%02X TCR=%02X ROCR=%02X WP=%02X%02X RP=%02X%02X "
-        "fr=%lu ovf=%lu perr=%lu blen=%lu rf=%lu nm=%lu txb=%lu bl=%lu kick=%lu rst=%lu zero=%lu",
-        why, (unsigned long)now, (unsigned long)rx_idle, (unsigned long)tx_idle, gpio_get_level((gpio_num_t)CH390_INT),
-        nsr, isr, imr, rcr, tcr, rocr, wph, wpl, rph, rpl,
-        (unsigned long)ch390_diag.rx_frames, (unsigned long)ch390_diag.rx_overflow, (unsigned long)ch390_diag.rx_pkt_err,
-        (unsigned long)ch390_diag.rx_bad_len, (unsigned long)ch390_diag.rx_read_fail, (unsigned long)ch390_diag.rx_nomem,
-        (unsigned long)ch390_diag.tx_busy, (unsigned long)ch390_diag.busy_loops,
-        (unsigned long)ch390_diag.rx_kick, (unsigned long)ch390_diag.rx_reset, (unsigned long)ch390_diag.rx_zero);
-    return true;
-}
-
-// Log the snapshot. Main loop only, not under spi_lock.
-static void ch390_diag_store(const char *snap) {
-    _LOG_A("CH390 stall: %s\n", snap);
-    ch390_diag_stored = true;
-}
-
-void ch390_diag_tick(void) {
-    static bool nvs_cleared = false;
-    if (!nvs_cleared) {                           // snapshot of earlier test builds: free its NVS entry once
-        nvs_cleared = true;
-        Preferences p;
-        bool has = false;
-        if (p.begin("ethdiag", true)) { has = p.isKey("last"); p.end(); }   // read-only: no write when absent
-        if (has && p.begin("ethdiag", false)) { p.clear(); p.end(); }
-    }
-    if (!EthPresent || !s_emac) return;
-    if (ch390_diag_pending_set) {                 // RX restart snapshot waiting to be logged
-        ch390_diag_store(ch390_diag_pending);
-        ch390_diag_pending_set = false;
-        return;
-    }
-    if (ch390_diag_stored) return;
-    uint32_t now = ch390_uptime_s();
-    if (!ch390_diag.last_rx_s || !ch390_diag.last_tx_s) return;           // not up yet
-    if (now - ch390_diag.last_rx_s < 60 && now - ch390_diag.last_tx_s < 60) return;
-
-    char b[CH390_DIAG_LEN];
-    CH390_LOCK(s_emac);
-    bool have = ch390_diag_snapshot_locked("idle", now, b, sizeof(b));
-    CH390_UNLOCK(s_emac);
-    if (have) ch390_diag_store(b);
 }

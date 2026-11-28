@@ -27,7 +27,7 @@ with the peak read from your digital meter, **without emptying your home battery
 | 🛡️ | **Peak Shaving SoC** | Below this SoC the battery only does peak shaving: in Smart mode the car cannot use that part of the battery. |
 | 🚀 | **Correct start current** | No more start at full current; the setpoint never exceeds the measured headroom. |
 | 📡 | **Configurable API timeout** | A short Wi-Fi hiccup of your P1 reader no longer stops charging. |
-| 🌐 | **Stable Ethernet (CH390D)** | The receiver is restarted within 1 s when the chip stops delivering frames, instead of staying deaf until a power cycle. |
+| 🌐 | **Stable Ethernet (CH390D)** | Upstream CH390D hardening by Michael Stegen, plus a last-resort restart of the receiver when nothing arrives for 30 s, instead of staying deaf until a power cycle. |
 
 Measured on a single-phase installation with a 15 kWh home battery (margin 20 W): charging now stays
 **about 45–70 W under the monthly peak** (quarters at 2745–2764 W with a 2812 W peak) with the home
